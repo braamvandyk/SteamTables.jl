@@ -774,7 +774,7 @@ function Region2meta(Output::Symbol, P, T)
 end
 
 """
-    Region2aTPh
+    Region2a_TPh
     
     Returns T [K] from P[MPa] and h[kJ/kg] in Region 2a.
     Pressures in MPa and temperature in [K]
@@ -895,7 +895,7 @@ function Region2a_TPh(P, h)
 end
 
 """
-    Region2bTPh
+    Region2b_TPh
     
     Returns T [K] from P[MPa] and h[kJ/kg] in Region 2b.
     Pressures in MPa and temperature in [K]
@@ -1028,7 +1028,7 @@ function Region2b_TPh(P, h)
 end
 
 """
-    Region2cTPh
+    Region2c_TPh
 
     Returns T [K] from P[MPa] and h[kJ/kg] in Region 2b.
     Pressures in MPa and temperature in [K]
@@ -1116,7 +1116,7 @@ function Region2c_TPh(P, h)
 end
 
 """
-    Region2aTPs
+    Region2a_TPs
 
     Returns T [K] from P[MPa] and s[kJ/kgK] in Region 2a.
     Pressures in MPa and temperature in [K]
@@ -1273,7 +1273,7 @@ function Region2a_TPs(P, s)
 end
 
 """
-    Region2bTPs
+    Region2b_TPs
 
     Returns T [K] from P[MPa] and s[kJ/kgK] in Region 2a.
     Pressures in MPa and temperature in [K]
@@ -1424,7 +1424,7 @@ function Region2b_TPs(P, s)
 end
 
 """
-    Region2cTPs
+    Region2c_TPs
 
     Returns T [K] from P[MPa] and s[kJ/kgK] in Region 2a.
     Pressures in MPa and temperature in [K]
@@ -1534,7 +1534,7 @@ end
 
 
 """
-    Region3
+    Region3_ρ
 
     Returns all the property values in region 3.
     623.15K ≤ T ≤ T(P) from B23-model P(T) from B23-model ≤ P ≤ 100MPa
@@ -1870,7 +1870,7 @@ end
 
 
 """
-    RegionID_PT
+    RegionID
 
     Identifies the applicable region, based on specified T and P.
     This allows the correct function to be called to retrieve properties.
@@ -2466,33 +2466,6 @@ end
 
 
 """
-    SpecificS_Ps
-
-    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
-"""
-function SpecificS_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificS, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificS, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificS, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificS, P, T)
-    end
-end
-
-
-
-"""
     SpecificH
 
     Utility function that returns the specific enthalpy [kJ/kg] from P [MPa] and T [K]
@@ -2508,33 +2481,6 @@ function SpecificH(P, T)
         return Region3(:SpecificH, P, T)
     elseif Region == :Region5
         return Region5(:SpecificH, P, T)
-    end
-end
-
-
-
-"""
-    SpecificH_Ph
-
-    Utility function that returns the specific enthalpy [kJ/kg] from P [MPa] and h [kJ/kg]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
-"""
-function SpecificH_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificH, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificH, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificH, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificH, P, T)
     end
 end
 
