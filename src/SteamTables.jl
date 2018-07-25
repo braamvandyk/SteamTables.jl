@@ -50,22 +50,22 @@ Temperatures in K, Pressures in MPa
 """
 module SteamTables
 
+
+const R = 0.461526      #kJ/kg/K    Universal gas constant
+const Tc = 647.096      #K          Critical temperature of water
+const Pc = 22.064       #Pa         Critical pressure of water
+const ρc = 322.         #kg/m3      Critical density of water
+const T3 = 273.16       #K          Triple point temperature of water
+const P3 = 611.657E-6   #MPa        Triple point pressure of water
+const Mr = 18.01528     #kg/kmol    Molecular weight of water
+
 export Psat, Tsat,
        SpecificG,    SpecificF,    SpecificV,    SpecificU,    SpecificS,    SpecificH,    SpecificCP,    SpecificCV,    SpeedOfSound,
        SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
-       SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificS_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
-
-
-export const R = 0.461526,      #kJ/kg/K    Universal gas constant
-       const Tc = 647.096,      #K          Critical temperature of water
-       const Pc = 22.064,       #Pa         Critical pressure of water
-       const ρc = 322.,         #kg/m3      Critical density of water
-       const T3 = 273.16,       #K          Triple point temperature of water
-       const P3 = 611.657E-6,   #MPa        Triple point pressure of water
-       const Mr = 18.01528      #kg/kmol    Molecular weight of water
+       SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificS_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
+       R, Tc, Pc, ρc, T3, P3, Mr
 
 using Roots
-
 
 
 """
@@ -172,7 +172,8 @@ function Region1(Output::Symbol, P, T)
          0.182_280_945_814_04E-23,
         -0.935_370_872_924_58E-25]
 
-    I = [0,         0,
+    I = [0,         
+         0,
          0,
          0,
          0,
@@ -256,7 +257,7 @@ function Region1(Output::Symbol, P, T)
     if Output == :SpecificG            #kJ/kg
         return R*T*γ
     elseif Output == :SpecificF        #kJ/kg
-        return R*T(γ - π*γ_π/1000)   
+        return R*T*(γ - π*γ_π/1000)   
     elseif Output == :SpecificV        #m3/kg
         return R*T*π*γ_π/P/1000
     elseif Output == :SpecificU        #kJ/kg
@@ -277,7 +278,7 @@ function Region1(Output::Symbol, P, T)
 end
 
 """
-    Region1TPh
+    Region1_TPh
 
     Returns T [K] from P[MPa] and h[kJ/kg] in Region 1.
     273.15K ≤ T ≤ 623.15K  Psat(T) ≤ P ≤ 100MPa
@@ -355,7 +356,7 @@ function Region1_TPh(P, h)
 end
 
 """
-    Region1TPs
+    Region1_TPs
 
     Returns T [K] from P[MPa] and s[kJ/kgK] in Region 1.
     273.15K ≤ T ≤ 623.15K  Psat(T) ≤ P ≤ 100MPa
@@ -1720,7 +1721,11 @@ function Region3(Output::Symbol, P, T)
     f(ρ) = Region3_ρ(:Pressure, ρ, T) - P
     ρ = Roots.find_zero(f, ρ0)
 
-    return Region3_ρ(Output, ρ, T)
+    if Output == :SpecificV
+        return 1.0 / ρ
+    else
+        return Region3_ρ(Output, ρ, T)
+    end
 end
 
 """
@@ -1955,19 +1960,19 @@ function RegionID_Ph(P, h)::Symbol
         throw(DomainError())
     end
 
-    T = Region1TPh(P, h)
+    T = Region1_TPh(P, h)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
         if P ≥ Psat(T)          
-            return :Region1, Region1(:SpecificH, P, T) # Return forward h for consistency check
+            return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
         end
     end
     
     if P ≤ 4.0 
         # could be Region 2a
-        T = Region2aTPh(P, h)
+        T = Region2a_TPh(P, h)
         if Tsat(P) ≤ T ≤ 1073.15 
-            return :Region2a, Region2(:SpecificH, P, T) # Return forward h for consistency check
+            return :Region2a #, Region2(:SpecificH, P, T) # Return forward h for consistency check
         else
             throw(DomainError()) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
         end
@@ -1975,25 +1980,25 @@ function RegionID_Ph(P, h)::Symbol
         htest = B2bc(:P, P)
         if h < htest 
             # could be Region 2c
-            T = Region2cTPh(P, h)
+            T = Region2c_TPh(P, h)
             if P ≤ Psat(623.15)
                 if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2c, Region2(:SpecificH, P, T) # Return forward h for consistency check
+                    return :Region2c #, Region2(:SpecificH, P, T) # Return forward h for consistency check
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2c, Region2(:SpecificH, P, T) # Return forward h for consistency check
+                return :Region2c #, Region2(:SpecificH, P, T) # Return forward h for consistency check
             else
                 throw(DomainError())
             end
         else
             # could be Region 2b
-            T = Region2bTPh(P, h)
+            T = Region2b_TPh(P, h)
             if P ≤ Psat(623.15)
                 if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2b, Region2(:SpecificH, P, T) # Return forward h for consistency check
+                    return :Region2b #, Region2(:SpecificH, P, T) # Return forward h for consistency check
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2b, Region2(:SpecificH, P, T) # Return forward h for consistency check
+                return :Region2b #, Region2(:SpecificH, P, T) # Return forward h for consistency check
             else
                 throw(DomainError())
             end
@@ -2036,44 +2041,44 @@ function RegionID_Ps(P, s)::Symbol
         throw(DomainError())
     end
 
-    T = Region1TPh(P, s)
+    T = Region1_TPs(P, s)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
         if P ≥ Psat(T)          
-            return :Region1, Region1(:SpecificS, P, T) # Return forward h for consistency check
+            return :Region1 #, Region1(:SpecificS, P, T) # Return forward s for consistency check
         end
     end
     
     if P ≤ 4.0 
         # could be Region 2a
-        T = Region2aTPh(P, s)
+        T = Region2a_TPs(P, s)
         if Tsat(P) ≤ T ≤ 1073.15 
-            return :Region2a, Region2(:SpecificS, P, T) # Return forward h for consistency check
+            return :Region2a #, Region2(:SpecificS, P, T) # Return forward s for consistency check
         else
             throw(DomainError()) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
         end
     else
         if s < 5.85 
             # could be Region 2c
-            T = Region2cTPs(P, s)
+            T = Region2c_TPs(P, s)
             if P ≤ Psat(623.15)
                 if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2c, Region2(:SpecificS, P, T) # Return forward h for consistency check
+                    return :Region2 #c, Region2(:SpecificS, P, T) # Return forward s for consistency check
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2c, Region2(:SpecificS, P, T) # Return forward h for consistency check
+                return :Region2c #, Region2(:SpecificS, P, T) # Return forward s for consistency check
             else
                 throw(DomainError())
             end
         else
             # could be Region 2b
-            T = Region2bTPh(P, s)
+            T = Region2b_TPs(P, s)
             if P ≤ Psat(623.15)
                 if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2b, Region2(:SpecificS, P, T) # Return forward h for consistency check
+                    return :Region2b #, Region2(:SpecificS, P, T) # Return forward s for consistency check
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2b, Region2(:SpecificS, P, T) # Return forward h for consistency check
+                return :Region2b #, Region2(:SpecificS, P, T) # Return forward s for consistency check
             else
                 throw(DomainError())
             end
@@ -2104,7 +2109,7 @@ end
     Utility function that returns the vapour pressure at pressure P [MPa]
 """
 function Tsat(P)
-    if 273.15 ≤ T ≤ 647.096
+    if 0.611_213E-3 ≤ P ≤ 22.064
         return Region4(:P, P)
     else
         throw(DomainError())
@@ -2122,6 +2127,7 @@ function SpecificG(P, T)
     
     if Region == :Region1
         return Region1(:SpecificG, P, T)
+    elseif Region == :Region2
         return Region2(:SpecificG, P, T)
     elseif Region == :Region3
         return Region3(:SpecificG, P, T)
@@ -2318,7 +2324,7 @@ end
 """
 function SpecificV_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpecificV, P, T)
@@ -2715,13 +2721,13 @@ function SpeedOfSound(P, T)
     Region = RegionID(P, T)
     
     if Region == :Region1
-        return Region1(:SpeeedOfSound, P, T)
+        return Region1(:SpeedOfSound, P, T)
     elseif Region == :Region2
-        return Region2(:SpeeedOfSound, P, T)
+        return Region2(:SpeedOfSound, P, T)
     elseif Region == :Region3
-        return Region3(:SpeeedOfSound, P, T)
+        return Region3(:SpeedOfSound, P, T)
     elseif Region == :Region5
-        return Region5(:SpeeedOfSound, P, T)
+        return Region5(:SpeedOfSound, P, T)
     end
 end
 
