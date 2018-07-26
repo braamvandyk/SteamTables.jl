@@ -4,13 +4,13 @@ A Julia implementation of the IAPWS-IF97 properties of water and steam.
 Provides the Gibbs and Helmholtz free energies, enthalpy, entropy Cp, Cv and sonic velocity.
 Inputs are eith P&T, P&h or P&s.
 
-##Exported functions:
+## Exported functions:
 
-###Single input:
+### Single input:
 
   Psat(T) and Tsat(P) returns the saturation linearindices
 
-###Two inputs:
+### Two inputs:
 
 P and T
   SpecificG,    SpecificF,     SpecificV,     SpecificU,      SpecificS,
@@ -37,7 +37,7 @@ SpeedOfSound [m/s]    Sonic velocity
 
 Temperatures in K, Pressures in MPa
 
-##Exported constants
+## Exported constants
   R  = 0.461526   [kJ/kg/K] Universal gas constant
   Tc = 647.096    [K]       Critical temperature of water
   Pc = 22.064     [kg/m3]   Critical density of water
