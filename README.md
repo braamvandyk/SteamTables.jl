@@ -13,27 +13,24 @@ Inputs are eith P&T, P&h or P&s.
 ### Two inputs:
 
 P and T
-  SpecificG,    SpecificF,     SpecificV,     SpecificU,      SpecificS,
-  SpecificH,    SpecificCP,    SpecificCV,    SpeedOfSound
+  SpecificG, SpecificF, SpecificV, SpecificU, SpecificS, SpecificH, SpecificCP, SpecificCV, SpeedOfSound
 
 P and h
-  SpecificG_Ph, SpecificF_Ph,  SpecificV_Ph,  SpecificU_Ph,   SpecificS_Ph,
-  SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph
+  SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph
 
 P and s
-  SpecificG_Ps, SpecificF_Ps,  SpecificV_Ps,  SpecificU_Ps,   SpecificS_Ps,
-  SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
+  SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificS_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
     
 
-SpecificG    [kJ/kg]  Specific Gibbs free energy 
-SpecificF    [kJ/kg]  Specific Helmholtz free energy 
-SpecificV    [m3/kg]  Specific volume 
-SpecificU    [kJ/kg]  Specific internal energy
-SpecificS    [kJ/kgK] Specific entropy 
-SpecificH    [kJ/kg]  Specific enthalpy 
-SpecificCp   [kJ/kgK] Specific isobaric heat capacity 
-SpecificCv   [kJ/kgK] Specific isochoric heat capacity 
-SpeedOfSound [m/s]    Sonic velocity 
+SpecificG     [kJ/kg]   Specific Gibbs free energy 
+SpecificF     [kJ/kg]   Specific Helmholtz free energy 
+SpecificV     [m3/kg]   Specific volume 
+SpecificU     [kJ/kg]   Specific internal energy
+SpecificS     [kJ/kgK]  Specific entropy 
+SpecificH     [kJ/kg]   Specific enthalpy 
+SpecificCp    [kJ/kgK]  Specific isobaric heat capacity 
+SpecificCv    [kJ/kgK]  Specific isochoric heat capacity 
+SpeedOfSound  [m/s]     Sonic velocity 
 
 Temperatures in K, Pressures in MPa
 
