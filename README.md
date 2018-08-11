@@ -4,6 +4,16 @@ A Julia implementation of the IAPWS-IF97 properties of water and steam.
 Provides the Gibbs and Helmholtz free energies, enthalpy, entropy Cp, Cv and sonic velocity.
 Inputs are eith P&T, P&h or P&s.
 
+[![SteamTables](http://pkg.julialang.org/badges/SteamTables_0.6.svg)](http://pkg.julialang.org/?pkg=SteamTables)
+[![SteamTables](http://pkg.julialang.org/badges/SteamTables_0.7.svg)](http://pkg.julialang.org/?pkg=SteamTables)
+
+Linux and macOS: [![Build Status](https://travis-ci.org/braamvandyk/SteamTables.jl.svg?branch=master)](https://travis-ci.org/braamvandyk/SteamTables.jl)
+
+Windows: [![Build Status](https://ci.appveyor.com/api/projects/status/github/braamvandyk/SteamTables.jl?branch=master&svg=true)](https://ci.appveyor.com/project/braamvandyk/SteamTables-jl/branch/master)
+
+[![Coverage Status](https://coveralls.io/repos/braamvandyk/SteamTables.jl/badge.svg?branch=master)](https://coveralls.io/r/braamvandyk/SteamTables.jl?branch=master)
+[![codecov.io](http://codecov.io/github/braamvandyk/SteamTables.jl/coverage.svg?branch=master)](http://codecov.io/github/braamvandyk/SteamTables.jl?branch=master)
+
 ## Exported functions:
 
 ### Single input:
