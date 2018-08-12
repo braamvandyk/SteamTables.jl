@@ -1,18 +1,18 @@
 __precompile__()
 
 """
-#SteamTables
+# SteamTables
 
 IAPWS-97 Industrial Formulation Properties of water and steam. 
 Provides the Gibbs and Helmholtz free energies, enthalpy, entropy Cp, Cv and sonic velocity given inputs that are eith P&T, P&h or P&s.
 
-##Exported functions:
+## Exported functions:
 
-###Single input:
+### Single input:
 
   Psat(T) and Tsat(P) returns the saturation linearindices
 
-###Two inputs:
+### Two inputs:
 
 P and T
   SpecificG,    SpecificF,     SpecificV,     SpecificU,      SpecificS,
@@ -61,8 +61,8 @@ const Mr = 18.01528     #kg/kmol    Molecular weight of water
 
 export Psat, Tsat,
        SpecificG,    SpecificF,    SpecificV,    SpecificU,    SpecificS,    SpecificH,    SpecificCP,    SpecificCV,    SpeedOfSound,
-       SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
-       SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificS_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
+       SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
+       SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
        R, Tc, Pc, ρc, T3, P3, Mr
 
 using Roots

@@ -1,63 +1,54 @@
 using SteamTables
 @static if VERSION < v"0.7.0-DEV.2005"
     using Base.Test
+
+    mysignif(x, n) = signif(x, n)
 else
     using Test
+
+    mysignif(x, n) = round(x; sigdigits = n)
 end
 
 const TestDigits = 6 # number of significant digits to test selected functions to
 
-println("Region 1, forwards equations for P and T")
-include("testreg1.jl")
+@testset "Region 1, forwards equations for P and T" begin include("testreg1.jl") end
 
-println("Region 1, backwards equations for P and h")
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-include("testreg1Ph.jl")
+@testset "Region 1, backwards equations for P and h" begin include("testreg1Ph.jl") end
 
-println("Region 1, backwards equations for P and s")
+
+
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-include("testreg1Ps.jl")
+@testset "Region 1, backwards equations for P and s" begin include("testreg1Ps.jl") end
+@testset "Region 2, forwards equations for P and T"  begin include("testreg2.jl") end
 
-println("Region 2, forwards equations for P and T")
-include("testreg2.jl")
-
-println("Region 2a, backwards equations for P and h")
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-include("testreg2aPh.jl")
+@testset "Region 2a, backwards equations for P and h" begin include("testreg2aPh.jl") end
 
-println("Region 2b, backwards equations for P and h")
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-include("testreg2bPh.jl")
+@testset "Region 2b, backwards equations for P and h" begin include("testreg2bPh.jl") end
 
-println("Region 2c, backwards equations for P and h")
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-include("testreg2cPh.jl")
+@testset "Region 2c, backwards equations for P and h" begin include("testreg2cPh.jl") end
 
-println("Region 2a, backwards equations for P and s")
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-include("testreg2aPs.jl")
+@testset "Region 2a, backwards equations for P and s" begin include("testreg2aPs.jl") end
 
-println("Region 2b, backwards equations for P and s")
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-#@test signif(SpecificG(8.0,  0.600_484_040E3), TestDigits)  ≈ signif(SpecificG_Ps(8.0,  6.0), TestDigits)
-include("testreg2bPs.jl")
+#@test mysignif(SpecificG(8.0,  0.600_484_040E3), TestDigits)  ≈ mysignif(SpecificG_Ps(8.0,  6.0), TestDigits)
+@testset "Region 2b, backwards equations for P and s" begin include("testreg2bPs.jl") end
 
-println("Region 2c, backwards equations for P and s")
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-include("testreg2cPs.jl")
+@testset "Region 2c, backwards equations for P and s" begin include("testreg2cPs.jl") end
 
-println("Region 3, forwards equations for P and T")
 # Region 3 is specified in terms of density rather than pressure. The utility functions fix this by solving
 # for the pressure. This does introduce some small error, which means we should check to fewer significant digits.
 # For consistency the checks here are done to the same number of digits as for the free energies, although the
 # accuracy here will be better.
-include("testreg3.jl")
+@testset "Region 3, forwards equations for P and T" begin include("testreg3.jl") end
 
-println("Region 4 - saturation pressure from temperature")
-include("testreg4T.jl")
+@testset "Region 4 - saturation pressure from temperature" begin include("testreg4T.jl") end
 
-println("Region 4 - saturation temperature from pressure")
-include("testreg4P.jl")
+@testset "Region 4 - saturation temperature from pressure" begin include("testreg4P.jl") end
 
-println("Region 5 - forwards equations for P and T")
-include("testreg5.jl")
+@testset "Region 5 - forwards equations for P and T" begin include("testreg5.jl") end
