@@ -1,8 +1,12 @@
 using SteamTables
 @static if VERSION < v"0.7.0-DEV.2005"
     using Base.Test
+
+    mysignif(x, n) = signif(x, n)
 else
     using Test
+
+    mysignif(x, n) = round(x; sigdigits = n)
 end
 
 const TestDigits = 6 # number of significant digits to test selected functions to
@@ -31,7 +35,7 @@ const TestDigits = 6 # number of significant digits to test selected functions t
 @testset "Region 2a, backwards equations for P and s" begin include("testreg2aPs.jl") end
 
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.
-#@test signif(SpecificG(8.0,  0.600_484_040E3), TestDigits)  ≈ signif(SpecificG_Ps(8.0,  6.0), TestDigits)
+#@test mysignif(SpecificG(8.0,  0.600_484_040E3), TestDigits)  ≈ mysignif(SpecificG_Ps(8.0,  6.0), TestDigits)
 @testset "Region 2b, backwards equations for P and s" begin include("testreg2bPs.jl") end
 
 # The free energies have lower consistency between the forward and backwards equations. Check to fewer significant digits.

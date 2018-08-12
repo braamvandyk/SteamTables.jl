@@ -1,6 +1,6 @@
-@test signif(SpecificV(0.255_837_018E2, 650.0), TestDigits)    ≈ 0.002
-@test signif(SpecificV(0.222_930_643E2, 650.0), TestDigits)    ≈ 0.005
-@test signif(SpecificV(0.783_095_639E2, 750.0), TestDigits)    ≈ 0.002
+@test mysignif(SpecificV(0.255_837_018E2, 650.0), TestDigits)    ≈ 0.002
+@test mysignif(SpecificV(0.222_930_643E2, 650.0), TestDigits)    ≈ 0.005
+@test mysignif(SpecificV(0.783_095_639E2, 750.0), TestDigits)    ≈ 0.002
 @test SpecificH(0.255_837_018E2, 650.0)    ≈ 0.186_343_019E4
 @test SpecificH(0.222_930_643E2, 650.0)    ≈ 0.237_512_401E4
 @test SpecificH(0.783_095_639E2, 750.0)    ≈ 0.225_868_845E4
