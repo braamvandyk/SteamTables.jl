@@ -4,7 +4,11 @@ A Julia implementation of the IAPWS-IF97 properties of water and steam.
 Provides the Gibbs and Helmholtz free energies, enthalpy, entropy, Cp, Cv and sonic velocity.
 
 ## Note:
-**While there is currently very little activity on this package, that is because it is basically complete. It is in active use by myself and not abandoned. I just don't have any features to add or known bugs to fix.**
+**While there is currently very little activity on this package, that is because it is basically complete. It is in active use by myself and not abandoned. I just don't have any features to add or known bugs to fix, with the possible execption of including Unitful.jl type units, if I ever get round to that.
+
+Support for Julia prior to v1.0.0 is dropped. There is no reason that this
+code won't work, but I am not maintaining an old version of Julia to test on.
+**
 
 
 Inputs are either P&T, P&h or P&s.
@@ -16,7 +20,6 @@ Linux and macOS: [![Build Status](https://travis-ci.org/braamvandyk/SteamTables.
 Windows: [![Build Status](https://ci.appveyor.com/api/projects/status/github/braamvandyk/SteamTables.jl?branch=master&svg=true)](https://ci.appveyor.com/project/braamvandyk/SteamTables-jl/branch/master)
 
 [![Coverage Status](https://coveralls.io/repos/braamvandyk/SteamTables.jl/badge.svg?branch=master)](https://coveralls.io/r/braamvandyk/SteamTables.jl?branch=master)
-[![codecov.io](http://codecov.io/github/braamvandyk/SteamTables.jl/coverage.svg?branch=master)](http://codecov.io/github/braamvandyk/SteamTables.jl?branch=master)
 
 ## Exported functions
 
@@ -71,4 +74,3 @@ Windows: [![Build Status](https://ci.appveyor.com/api/projects/status/github/bra
     P3 = 611.657E-6 [MPa]     Triple point pressure of water
 
     Mr = 18.01528   [kg/kmol] Molecular weight of water
-  
