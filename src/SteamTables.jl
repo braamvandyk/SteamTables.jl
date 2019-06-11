@@ -3,7 +3,7 @@ __precompile__()
 """
 # SteamTables
 
-IAPWS-97 Industrial Formulation Properties of water and steam. 
+IAPWS-97 Industrial Formulation Properties of water and steam.
 Provides the Gibbs and Helmholtz free energies, enthalpy, entropy Cp, Cv and sonic velocity given inputs that are eith P&T, P&h or P&s.
 
 ## Exported functions:
@@ -25,19 +25,23 @@ P and h
 P and s
   SpecificG_Ps, SpecificF_Ps,  SpecificV_Ps,  SpecificU_Ps,   SpecificS_Ps,
   SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
-    
 
-SpecificG    [kJ/kg]  Specific Gibbs free energy 
-SpecificF    [kJ/kg]  Specific Helmholtz free energy 
-SpecificV    [m3/kg]  Specific volume 
+
+SpecificG    [kJ/kg]  Specific Gibbs free energy
+SpecificF    [kJ/kg]  Specific Helmholtz free energy
+SpecificV    [m3/kg]  Specific volume
 SpecificU    [kJ/kg]  Specific internal energy
-SpecificS    [kJ/kgK] Specific entropy 
-SpecificH    [kJ/kg]  Specific enthalpy 
-SpecificCp   [kJ/kgK] Specific isobaric heat capacity 
-SpecificCv   [kJ/kgK] Specific isochoric heat capacity 
-SpeedOfSound [m/s]    Sonic velocity 
+SpecificS    [kJ/kgK] Specific entropy
+SpecificH    [kJ/kg]  Specific enthalpy
+SpecificCp   [kJ/kgK] Specific isobaric heat capacity
+SpecificCv   [kJ/kgK] Specific isochoric heat capacity
+SpeedOfSound [m/s]    Sonic velocity
 
-Temperatures in K, Pressures in MPa
+By default temperatures in K, pressures in MPa
+
+If units are associated with inputs via Unitful.jl, the return values will also
+have default units associated with them. These can be converted to preferred units
+in the calling function.
 
 ##Exported constants
   R  = 0.461526   [kJ/kg/K] Universal gas constant
@@ -46,6 +50,11 @@ Temperatures in K, Pressures in MPa
   T3 = 273.16     [K]       Triple point temperature of water
   P3 = 611.657E-6 [MPa]     Triple point pressure of water
   Mr = 18.01528   [kg/kmol] Molecular weight of water
+
+  Exported constants do not have associated units. Units can be easily added,
+  e.g.
+
+  Ru = R * 1.0u"kJ/kg/K"
 
 """
 module SteamTables
@@ -66,11 +75,14 @@ export Psat, Tsat,
        R, Tc, Pc, ρc, T3, P3, Mr
 
 using Roots
+using Unitful
+
+struct UnitsError <: Exception end
 
 
 """
     B23(InputType::Symbol, InputValue)
-    
+
 Returns the boundary between regions 2 and 3.
 InputType is either :T or :P to indicate that InputValue is temperature [K] or pressure [MPa]. The complimentary value is returned.
 """
@@ -86,10 +98,9 @@ function B23(InputType::Symbol, InputValue)
     elseif InputType == :P
         return n[4] + √((InputValue - n[5])/n[3])
     else
-        throw(DomainError())
+        throw(DomainError(InputType, "Unknown input. Expecting :T or :P"))
     end
 end
-
 
 
 """
@@ -112,7 +123,7 @@ function B2bc(InputType::Symbol, InputValue)
     elseif InputType == :P
         return n[4] + √((InputValue - n[5])/n[3])
     else
-        throw(DomainError())
+        throw(DomainError(InputType, "Unknown input. Expecting :P or :h."))
     end
 end
 
@@ -136,7 +147,7 @@ end
 function Region1(Output::Symbol, P, T)
     Pstar = 16.53   #MPa
     Tstar = 1386.0  #K
-    
+
     n = [0.146_329_712_131_67,
         -0.845_481_871_691_14,
         -0.375_636_036_720_40E1,
@@ -172,7 +183,7 @@ function Region1(Output::Symbol, P, T)
          0.182_280_945_814_04E-23,
         -0.935_370_872_924_58E-25]
 
-    I = [0,         
+    I = [0,
          0,
          0,
          0,
@@ -257,7 +268,7 @@ function Region1(Output::Symbol, P, T)
     if Output == :SpecificG            #kJ/kg
         return R*T*γ
     elseif Output == :SpecificF        #kJ/kg
-        return R*T*(γ - π*γ_π/1000)   
+        return R*T*(γ - π*γ_π/1000)
     elseif Output == :SpecificV        #m3/kg
         return R*T*π*γ_π/P/1000
     elseif Output == :SpecificU        #kJ/kg
@@ -273,7 +284,7 @@ function Region1(Output::Symbol, P, T)
     elseif Output == :SpeedOfSound     #m/s
         return √(1000*R*T*(γ_π)^2/((γ_π - τ*γ_πτ)^2/τ^2/γ_ττ - γ_ππ))
     else
-        throw(DomainError())
+        throw(DomainError(Output, "Unknown value requested."))
     end
 end
 
@@ -441,7 +452,7 @@ end
     Pressures in MPa and temperature in [K]
     The property to be returned is specified in Output.
         :SpecificG        kJ/kg
-        :SpecificF        kJ/kg        
+        :SpecificF        kJ/kg
         :SpecificV        m3/kg
         :SpecificU        kJ/kg
         :SpecificS        kJ/kgK
@@ -449,7 +460,7 @@ end
         :SpecificCP       kJ/kgK
         :SpecificCV       kJ/kgK
         :SpeedOfSound     m/s
-"""    
+"""
 function Region2(Output::Symbol, P, T)
     Pstar = 1.0    #MPa
     Tstar = 540.0  #K
@@ -627,7 +638,7 @@ function Region2(Output::Symbol, P, T)
     if Output == :SpecificG            #kJ/kg
         return R*T*(γo + γr)
     elseif Output == :SpecificF        #kJ/kg
-        return R*T*(γo + γr - π*(γo_π + γr_π)/1000)    
+        return R*T*(γo + γr - π*(γo_π + γr_π)/1000)
     elseif Output == :SpecificV        #m3/kg
         return R*T*π*(γo_π + γr_π)/P/1000
     elseif Output == :SpecificU        #kJ/kg
@@ -643,7 +654,7 @@ function Region2(Output::Symbol, P, T)
     elseif Output == :SpeedOfSound     #m/s
         return sqrt((1000*R*T)*(1+2*π*γr_π+π^2*γr_π^2)/((1-π^2*γr_ππ)+(1+π*γr_π-τ*π*γr_πτ)^2/τ^2/(γo_ττ + γr_ττ)))
     else
-        throw(DomainError())
+        throw(DomainError(Output, "Unknown value requested."))
     end
 end
 
@@ -657,8 +668,8 @@ end
     for pressures from P3 up to 10MPa.
     Pressures in MPa and temperature in [K]
     The property to be returned is specified in Output.
-        :SpecificG        kJ/kg       
-        :SpecificF        kJ/kg  
+        :SpecificG        kJ/kg
+        :SpecificF        kJ/kg
         :SpecificV        m3/kg
         :SpecificU        kJ/kg
         :SpecificS        kJ/kgK
@@ -666,7 +677,7 @@ end
         :SpecificCP       kJ/kgK
         :SpecificCV       kJ/kgK
         :SpeedOfSound     m/s
-"""    
+"""
 function Region2meta(Output::Symbol, P, T)
     Pstar = 1.0    #MPa
     Tstar = 540.0  #K
@@ -769,13 +780,13 @@ function Region2meta(Output::Symbol, P, T)
     elseif Output == :SpeedOfSound     #m/s
         return √((1000*R*T)*(1+2*π*γr_π+π^2*γr_π^2)/((1-π^2*γr_ππ)+(1+π*γr_π-τ*π*γr_πτ)^2/τ^2/(γo_ττ + γr_ττ)))
     else
-        throw(DomainError())
+        throw(DomainError(Output, "Unknown value requested."))
     end
 end
 
 """
     Region2a_TPh
-    
+
     Returns T [K] from P[MPa] and h[kJ/kg] in Region 2a.
     Pressures in MPa and temperature in [K]
 """
@@ -896,7 +907,7 @@ end
 
 """
     Region2b_TPh
-    
+
     Returns T [K] from P[MPa] and h[kJ/kg] in Region 2b.
     Pressures in MPa and temperature in [K]
 """
@@ -1540,7 +1551,7 @@ end
     623.15K ≤ T ≤ T(P) from B23-model P(T) from B23-model ≤ P ≤ 100MPa
     Pressures in MPa and temperature in [K]
     The property to be returned is specified in Output.
-        :SpecificG        kJ/kg    
+        :SpecificG        kJ/kg
         :SpecificF        kJ/kg
         :Pressure         MPa
         :SpecificU        kJ/kg
@@ -1550,7 +1561,7 @@ end
         :SpecificCV       kJ/kgK
         :SpeedOfSound     m/s
 """
-function Region3_ρ(Output::Symbol, ρ, T)  
+function Region3_ρ(Output::Symbol, ρ, T)
     ρstar = ρc      #kg/m3
     Tstar = Tc      #K
 
@@ -1706,7 +1717,7 @@ function Region3_ρ(Output::Symbol, ρ, T)
     elseif Output == :SpeedOfSound     #m/s
         return sqrt(1000*R*T*(2*δ*ϕ_δ + δ^2*ϕ_δδ - ((δ*ϕ_δ - δ*τ*ϕ_δτ)^2)/(τ^2*ϕ_ττ)))
     else
-        throw(DomainError())
+        throw(DomainError(Output, "Unknown value requested."))
     end
 end
 
@@ -1715,7 +1726,7 @@ end
     Initialise from ideal gas law, then use root finder to calculate P by iterating on Region3ρ.
     Pass through properties from Region3ρ
 """
-function Region3(Output::Symbol, P, T) 
+function Region3(Output::Symbol, P, T)
     ρ0 = 1000*P/(R*T) #Starting value from ideal gas
 
     f(ρ) = Region3_ρ(:Pressure, ρ, T) - P
@@ -1767,7 +1778,7 @@ function Region4(InputType::Symbol, InputValue)
         T = (n[10]+D-√((n[10]+D)^2 - 4(n[9]+n[10]*D)))/2.0
         return T
     else
-        throw(DomainError())
+        throw(DomainError(InputType, "Unknown input. Expecting :T or :P"))
     end
 end
 
@@ -1792,7 +1803,7 @@ end
 function Region5(Output::Symbol, P, T)
     Pstar = 1.0     #MPa
     Tstar = 1000.0  #K
-    
+
     no = [-0.131_799_836_742_01E2,
            0.685_408_416_344_34E1,
           -0.248_051_489_334_66E-1,
@@ -1813,30 +1824,30 @@ function Region5(Output::Symbol, P, T)
           0.224_400_374_094_85E-5,
          -0.411_632_754_534_71E-5,
           0.379_194_548_229_55E-7]
-    
+
     Ir = [1,
           1,
           1,
           2,
           2,
           3]
-    
+
     Jr = [1,
           2,
           3,
           3,
           9,
           7]
-    
+
     π = P / Pstar
     τ = Tstar / T
 
     γo    =  log(π) + sum([no[i]*(τ^Jo[i]) for i=1:6])
-    γo_π  =  1/π 
+    γo_π  =  1/π
     γo_ππ = -1/(π^2)
     γo_τ  =          sum([no[i]*Jo[i]*(τ^(Jo[i]-1)) for i=1:6])
     γo_ττ =          sum([no[i]*Jo[i]*(Jo[i]-1)*(τ^(Jo[i]-2)) for i=1:6])
-    γo_πτ = 0         
+    γo_πτ = 0
 
     γr    = sum([nr[i]*(π^Ir[i])*(τ^Jr[i]) for i=1:6])
     γr_π  = sum([nr[i]*Ir[i]*(π^(Ir[i]-1))*(τ^Jr[i]) for i=1:6])
@@ -1864,7 +1875,7 @@ function Region5(Output::Symbol, P, T)
     elseif Output == :SpeedOfSound     #m/s
         return √(1000*R*T*(1 + 2*π*γr_π + (π^2)*(γr_π^2))/((1 - (π^2)*(γr_ππ))+((1+π*γr_π-τ*π*γr_πτ)^2)/(τ^2*(γo_ττ + γr_ττ))))
     else
-        throw(DomainError())
+        throw(DomainError(Output, "Unknown value requested."))
     end
 end
 
@@ -1890,9 +1901,9 @@ function RegionID(P, T)::Symbol
     From the saturated-vapour line to the 5% equlibrium moisture line, a.k.a the
     practical Wilson line:
         %equilibrium moisture = [h - h_liq(P)] / [h_vap(P) - h_liq(P)]
-    for pressures from the triple point (273.16K, 611.657MPa) up to 10MPa.   
+    for pressures from the triple point (273.16K, 611.657MPa) up to 10MPa.
     These equations only used on demand.
-   
+
     Region 3:
         623.15K ≤ T ≤ T(P) from B23-model P(T) from B23-model ≤ P ≤ 100MPa
 
@@ -1902,18 +1913,18 @@ function RegionID(P, T)::Symbol
     273.15K ≤ T ≤ 647.096K
     Since this is a single floating point number, Region 4 is never returned and only used on demand.
 
-    Region 5:emperature in [K] 
+    Region 5:emperature in [K]
     =#
 
     #Check region 5 first:
     if 1073.15 ≤ T ≤ 2273.15 && 0 ≤ P ≤ 50
         return :Region5
     elseif T < 273.15 || T > 1073.15 || P < 0 || P > 100
-        throw(DomainError()) #Outside the regions where equations are available.
+        throw(DomainError((P, T), "Pressure/Temperature outside valid ranges.")) #Outside the regions where equations are available.
     elseif 273.15 ≤ T ≤ 623.15
         if Psat(T) ≤ P ≤ 100
             return :Region1
-        else  
+        else
             return :Region2
         end
     elseif 623.15 <  T ≤ 863.15
@@ -1934,7 +1945,7 @@ end
     This allows the correct function to be called to retrieve properties.
     Backwards equations are only available for Regions 1 and 2 and the vapour-liquid
     equilibrium line, which is only used when explicitly called.
-    
+
     As there are no explicit domains defined for (T, h), the method is iterative.
     The reverse equation for T = f(P,h) is called for each region and the result
     is checked against the bounds for the region.
@@ -1954,31 +1965,31 @@ function RegionID_Ph(P, h)::Symbol
             2b: s ≥ 5.85 kJ/kgK (or use function B2bc if P,h specificed)
             2c: s ≥ 5.85 kJ/kgK (or use function B2bc if P,h specificed)
     =#
-    
+
     # Check overall region first
     if P > 100
-        throw(DomainError())
+        throw(DomainError(P, "Pressure not in valid ranges."))
     end
 
     T = Region1_TPh(P, h)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
-        if P ≥ Psat(T)          
+        if P ≥ Psat(T)
             return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
         end
     end
-    
-    if P ≤ 4.0 
+
+    if P ≤ 4.0
         # could be Region 2a
         T = Region2a_TPh(P, h)
-        if Tsat(P) ≤ T ≤ 1073.15 
+        if Tsat(P) ≤ T ≤ 1073.15
             return :Region2a #, Region2(:SpecificH, P, T) # Return forward h for consistency check
         else
-            throw(DomainError()) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
+            throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
         end
     else
         htest = B2bc(:P, P)
-        if h < htest 
+        if h < htest
             # could be Region 2c
             T = Region2c_TPh(P, h)
             if P ≤ Psat(623.15)
@@ -1988,7 +1999,7 @@ function RegionID_Ph(P, h)::Symbol
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2c #, Region2(:SpecificH, P, T) # Return forward h for consistency check
             else
-                throw(DomainError())
+                throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
             end
         else
             # could be Region 2b
@@ -2000,11 +2011,11 @@ function RegionID_Ph(P, h)::Symbol
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2b #, Region2(:SpecificH, P, T) # Return forward h for consistency check
             else
-                throw(DomainError())
+                throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
             end
         end
     end
-    throw(DomainError())
+    throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
 end
 
 
@@ -2015,7 +2026,7 @@ end
     This allows the correct function to be called to retrieve properties.
     Backwards equations are only available for Regions 1 and 2 and the vapour-liquid
     equilibrium line, which is only used when explicitly called.
-    
+
     As there are no explicit domains defined for (T, s), the method is iterative.
     The reverse equation for T = f(P,s) is called for each region and the result
     is checked against the bounds for the region.
@@ -2035,30 +2046,30 @@ function RegionID_Ps(P, s)::Symbol
             2c: s ≥ 5.85 kJ/kgK
             2b: s ≥ 5.85 kJ/kgK
     =#
-    
+
     # Check overall region first
     if P > 100
-        throw(DomainError())
+        throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
     end
 
     T = Region1_TPs(P, s)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
-        if P ≥ Psat(T)          
+        if P ≥ Psat(T)
             return :Region1 #, Region1(:SpecificS, P, T) # Return forward s for consistency check
         end
     end
-    
-    if P ≤ 4.0 
+
+    if P ≤ 4.0
         # could be Region 2a
         T = Region2a_TPs(P, s)
-        if Tsat(P) ≤ T ≤ 1073.15 
+        if Tsat(P) ≤ T ≤ 1073.15
             return :Region2a #, Region2(:SpecificS, P, T) # Return forward s for consistency check
         else
-            throw(DomainError()) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
+            throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
         end
     else
-        if s < 5.85 
+        if s < 5.85
             # could be Region 2c
             T = Region2c_TPs(P, s)
             if P ≤ Psat(623.15)
@@ -2068,7 +2079,7 @@ function RegionID_Ps(P, s)::Symbol
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2c #, Region2(:SpecificS, P, T) # Return forward s for consistency check
             else
-                throw(DomainError())
+                throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")))
             end
         else
             # could be Region 2b
@@ -2080,25 +2091,49 @@ function RegionID_Ps(P, s)::Symbol
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2b #, Region2(:SpecificS, P, T) # Return forward s for consistency check
             else
-                throw(DomainError())
+                throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")))
             end
         end
     end
-    throw(DomainError())
+    throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")))
 end
 
+
+#============================================================================
+=============================================================================
+                            Exported functions:
+                            ~~~~~~~~~~~~~~~~~~
+============================================================================
+============================================================================#
 
 
 """
     Psat
 
     Utility function that returns the vapour pressure at temperature T [K].
+    If inputs have associated units, the value is returned with associated units
+    of MPa via Uniful.jl.
 """
 function Psat(T)
     if T3 ≤ T ≤ Tc
         return Region4(:T, T)
     else
-        throw(DomainError())
+        throw(DomainError(T, "Temperature not between tripple and critical points."))
+    end
+end
+
+
+function Psat(Tu::Q) where Q <: Quantity
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    if T3 ≤ T.val ≤ Tc
+        return Region4(:T, T.val)*u"MPa"
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points."))
     end
 end
 
@@ -2106,13 +2141,30 @@ end
 """
     Tsat
 
-    Utility function that returns the vapour pressure at pressure P [MPa]
+    Utility function that returns the vapour pressure at pressure P [MPa].
+    If inputs have associated units, the value is returned with associated
+    units of K via Uniful.jl.
 """
 function Tsat(P)
-    if 0.611_213E-3 ≤ P ≤ 22.064
+    if 0.611_213E-3 ≤ P ≤ Pc # Note that botton limit nor exactly P3
         return Region4(:P, P)
     else
-        throw(DomainError())
+        throw(DomainError(P, "Pressure not between tripple and critical points"))
+    end
+end
+
+
+function Tsat(Pu::Q) where Q <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+
+    if 0.611_213E-3 ≤ P.val ≤ Pc
+        return Region4(:P, P.val)*u"K"
+    else
+        throw(DomainError(P, "Pressure not between tripple and critical points"))
     end
 end
 
@@ -2120,11 +2172,14 @@ end
 """
     SpecificG
 
-    Utility function that returns the Gibbs free energy [kJ/kgK] from P [MPa] and T [K]
+    Utility function that returns the Gibbs free energy [kJ/kgK] from P [MPa]
+    and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificG(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificG, P, T)
     elseif Region == :Region2
@@ -2137,6 +2192,31 @@ function SpecificG(P, T)
 end
 
 
+function SpecificG(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificG, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region2
+        return Region2(:SpecificG, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region3
+        return Region3(:SpecificG, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region5
+        return Region5(:SpecificG, P.val, T.val)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificG_Ph
@@ -2144,10 +2224,12 @@ end
     Utility function that returns the Gibbs free energy [kJ/kgK] from P [MPa] and h [kJ/kg]
     The explicit backwards equations are only available in regions 1 and 2. Input outside these
     will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificG_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpecificG, P, T)
@@ -2164,17 +2246,49 @@ function SpecificG_Ph(P, h)
 end
 
 
+function SpecificG_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpecificG, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificG_Ps
 
-    Utility function that returns the Gibbs free energy [kJ/kgK] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the Gibbs free energy [kJ/kgK] from P [MPa]
+    and s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificG_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpecificG, P, T)
@@ -2191,15 +2305,47 @@ function SpecificG_Ps(P, s)
 end
 
 
+function SpecificG_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/kg/K", su)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpecificG, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificF
 
-    Utility function that returns the Helmholtz free energy [kJ/kgK] from P [MPa] and T [K]
+    Utility function that returns the Helmholtz free energy [kJ/kgK] from
+    P [MPa] and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificF(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificF, P, T)
     elseif Region == :Region2
@@ -2212,17 +2358,45 @@ function SpecificF(P, T)
 end
 
 
+function SpecificF(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificF, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region2
+        return Region2(:SpecificF, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region3
+        return Region3(:SpecificF, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region5
+        return Region5(:SpecificF, P.val, T.val)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificF_Ph
 
-    Utility function that returns the Helmholtz free energy [kJ/kgK] from P [MPa] and h [kJ/kg]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the Helmholtz free energy [kJ/kgK] from
+    P [MPa] and h [kJ/kg].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificF_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpecificF, P, T)
@@ -2239,17 +2413,49 @@ function SpecificF_Ph(P, h)
 end
 
 
+function SpecificFu_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpecificF, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificF_Ps
 
-    Utility function that returns the Helmholtz free energy [kJ/kgK] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the Helmholtz free energy [kJ/kgK] from
+    P [MPa] and s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificF_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpecificF, P, T)
@@ -2266,15 +2472,46 @@ function SpecificF_Ps(P, s)
 end
 
 
+function SpecificF_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/kg/K", su)
+    catch
+        throw(UnitsError(su, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpecificF, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificV
 
-    Utility function that returns the specific volume [m3/kg] from P [MPa] and T [K]
+    Utility function that returns the specific volume [m3/kg] from P [MPa] and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of m3/kg via Uniful.jl.
 """
 function SpecificV(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificV, P, T)
     elseif Region == :Region2
@@ -2287,6 +2524,31 @@ function SpecificV(P, T)
 end
 
 
+function SpecificV(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificV, P.val, T.val)*u"m^3/kg"
+    elseif Region == :Region2
+        return Region2(:SpecificV, P.val, T.val)*u"m^3/kg"
+    elseif Region == :Region3
+        return Region3(:SpecificV, P.val, T.val)*u"m^3/kg"
+    elseif Region == :Region5
+        return Region5(:SpecificV, P.val, T.val)*u"m^3/kg"
+    end
+end
+
 
 """
     SpecificV_Ph
@@ -2294,10 +2556,12 @@ end
     Utility function that returns the specific volume [m3/kg] from P [MPa] and h [kJ/kg]
     The explicit backwards equations are only available in regions 1 and 2. Input outside these
     will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of m3/kg via Uniful.jl.
 """
 function SpecificV_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpecificV, P, T)
@@ -2314,13 +2578,45 @@ function SpecificV_Ph(P, h)
 end
 
 
+function SpecificV_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpecificV, P.val, T)*u"m^3/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
+    end
+end
+
 
 """
     SpecificV_Ps
 
-    Utility function that returns the specific volume [m3/kg] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the specific volume [m3/kg] from P [MPa] and
+    s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of m3/kg via Uniful.jl.
 """
 function SpecificV_Ps(P, s)
     Region = RegionID_Ps(P, s)
@@ -2341,15 +2637,47 @@ function SpecificV_Ps(P, s)
 end
 
 
+function SpecificV_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/kg/K", su)
+    catch
+        throw(UnitsError(su, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpecificV, P.val, T)*u"m^3/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
+    end
+end
+
 
 """
     SpecificU
 
-    Utility function that returns the specific internal energy [kJ/kg] from P [MPa] and T [K]
+    Utility function that returns the specific internal energy [kJ/kg] from
+    P [MPa] and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificU(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificU, P, T)
     elseif Region == :Region2
@@ -2362,17 +2690,45 @@ function SpecificU(P, T)
 end
 
 
+function SpecificU(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificU, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region2
+        return Region2(:SpecificU, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region3
+        return Region3(:SpecificU, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region5
+        return Region5(:SpecificU, P.val, T.val)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificU_Ph
 
-    Utility function that returns the internal energy [kJ/kgK] from P [MPa] and h [kJ/kg]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the internal energy [kJ/kgK] from P [MPa] and
+    h [kJ/kg].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificU_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpecificU, P, T)
@@ -2389,17 +2745,49 @@ function SpecificU_Ph(P, h)
 end
 
 
+function SpecificU_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpecificU, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificU_Ps
 
-    Utility function that returns the internal energy [kJ/kgK] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the internal energy [kJ/kgK] from P [MPa] and
+    s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificU_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpecificU, P, T)
@@ -2416,15 +2804,47 @@ function SpecificU_Ps(P, s)
 end
 
 
+function SpecificU_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/kg/K", su)
+    catch
+        throw(UnitsError(su, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpecificU, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificS
 
-    Utility function that returns the specific entropy [kJ/kgK] from P [MPa] and T [K]
+    Utility function that returns the specific entropy [kJ/kgK] from P [MPa]
+    and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificS(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificS, P, T)
     elseif Region == :Region2
@@ -2437,17 +2857,45 @@ function SpecificS(P, T)
 end
 
 
+function SpecificS(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificS, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region2
+        return Region2(:SpecificS, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region3
+        return Region3(:SpecificS, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region5
+        return Region5(:SpecificS, P.val, T.val)*u"kJ/kg/K"
+    end
+end
+
 
 """
     SpecificS_Ph
 
-    Utility function that returns the specific entropy [kJ/kgK] from P [MPa] and h [kJ/kg]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the specific entropy [kJ/kgK] from P [MPa]
+    and h [kJ/kg].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificS_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpecificS, P, T)
@@ -2464,15 +2912,47 @@ function SpecificS_Ph(P, h)
 end
 
 
+function SpecificS_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpecificS, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpecificS, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpecificS, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpecificS, P.val, T)*u"kJ/kg/K"
+    end
+end
+
 
 """
     SpecificH
 
-    Utility function that returns the specific enthalpy [kJ/kg] from P [MPa] and T [K]
+    Utility function that returns the specific enthalpy [kJ/kg] from P [MPa]
+    and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificH(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificH, P, T)
     elseif Region == :Region2
@@ -2485,17 +2965,45 @@ function SpecificH(P, T)
 end
 
 
+function SpecificH(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificH, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region2
+        return Region2(:SpecificH, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region3
+        return Region3(:SpecificH, P.val, T.val)*u"kJ/kg"
+    elseif Region == :Region5
+        return Region5(:SpecificH, P.val, T.val)*u"kJ/kg"
+    end
+end
+
 
 """
     SpecificH_Ps
 
-    Utility function that returns the speciic enthalpy [kJ/kg] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the speciic enthalpy [kJ/kg] from P [MPa]
+    and s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
 """
 function SpecificH_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpecificH, P, T)
@@ -2512,14 +3020,47 @@ function SpecificH_Ps(P, s)
 end
 
 
+function SpecificH_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/k/K", su)
+    catch
+        throw(UnitsError(su, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpecificH, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpecificH, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpecificH, P.val, T)*u"kJ/kg"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpecificH, P.val, T)*u"kJ/kg"
+    end
+end
+
+
 """
     SpecificCP
 
-    Utility function that returns the specific isobaric heat capacity [kJ/kgK] from P [MPa] and T [K]
+    Utility function that returns the specific isobaric heat capacity [kJ/kgK]
+    from P [MPa] and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificCP(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificCP, P, T)
     elseif Region == :Region2
@@ -2532,17 +3073,45 @@ function SpecificCP(P, T)
 end
 
 
+function SpecificCP(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region2
+        return Region2(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region3
+        return Region3(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region5
+        return Region5(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
+    end
+end
+
 
 """
     SpecificCP_Ph
 
-    Utility function that returns the specific entropy [kJ/kgK] from P [MPa] and h [kJ/kg]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the specific entropy [kJ/kgK] from P [MPa]
+    and h [kJ/kg].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificCP_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpecificCP, P, T)
@@ -2559,17 +3128,49 @@ function SpecificCP_Ph(P, h)
 end
 
 
+function SpecificCP_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    end
+end
+
 
 """
     SpecificCP_Ps
 
-    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa]
+    and s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificCP_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpecificCP, P, T)
@@ -2585,14 +3186,48 @@ function SpecificCP_Ps(P, s)
     end
 end
 
+
+function SpecificCP_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/kg/K", su)
+    catch
+        throw(UnitsError(su, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
+    end
+end
+
+
 """
     SpecificCV
 
-    Utility function that returns the specific isochoric heat capacity [kJ/kgK] from P [MPa] and T [K]
+    Utility function that returns the specific isochoric heat capacity [kJ/kgK]
+    from P [MPa] and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificCV(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpecificCV, P, T)
     elseif Region == :Region2
@@ -2605,17 +3240,45 @@ function SpecificCV(P, T)
 end
 
 
+function SpecificCV(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region2
+        return Region2(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region3
+        return Region3(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
+    elseif Region == :Region5
+        return Region5(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
+    end
+end
+
 
 """
     SpecificCV_Ph
 
-    Utility function that returns the specific entropy [kJ/kgK] from P [MPa] and h [kJ/kg]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the specific entropy [kJ/kgK] from P [MPa]
+    and h [kJ/kg].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificCV_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpecificCV, P, T)
@@ -2632,17 +3295,49 @@ function SpecificCV_Ph(P, h)
 end
 
 
+function SpecificCV_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    end
+end
+
 
 """
     SpecificCV_Ps
 
-    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa]
+    and s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kgK via Uniful.jl.
 """
 function SpecificCV_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpecificCV, P, T)
@@ -2658,14 +3353,47 @@ function SpecificCV_Ps(P, s)
     end
 end
 
+
+function SpecificCV_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/kg/K", su)
+    catch
+        throw(UnitsError(su, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
+    end
+end
+
+
 """
     SpeedOfSound
 
-    Utility function that returns the sonic velocity [m/s] from P [MPa] and T [K]
+    Utility function that returns the sonic velocity [m/s] from P [MPa] and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of m/s via Uniful.jl.
 """
 function SpeedOfSound(P, T)
     Region = RegionID(P, T)
-    
+
     if Region == :Region1
         return Region1(:SpeedOfSound, P, T)
     elseif Region == :Region2
@@ -2678,17 +3406,45 @@ function SpeedOfSound(P, T)
 end
 
 
+function SpeedOfSound(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        T = 1.0*uconvert(u"K", Tu)
+    catch
+        throw(UnitsError(Tu, "Invalid input units."))
+    end
+
+    Region = RegionID(P.val, T.val)
+
+    if Region == :Region1
+        return Region1(:SpeedOfSound, P.val, T.val)*u"m/s"
+    elseif Region == :Region2
+        return Region2(:SpeedOfSound, P.val, T.val)*u"m/s"
+    elseif Region == :Region3
+        return Region3(:SpeedOfSound, P.val, T.val)*u"m/s"
+    elseif Region == :Region5
+        return Region5(:SpeedOfSound, P.val, T.val)*u"m/s"
+    end
+end
+
 
 """
     SpeedOfSound_Ph
 
-    Utility function that returns the specific entropy [kJ/kgK] from P [MPa] and h [kJ/kg]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the specific entropy [kJ/kgK] from P [MPa]
+    and h [kJ/kg].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of m/s via Uniful.jl.
 """
 function SpeedOfSound_Ph(P, h)
     Region = RegionID_Ph(P, h)
-    
+
     if Region == :Region1
         T = Region1_TPh(P, h)
         return Region1(:SpeedOfSound, P, T)
@@ -2705,17 +3461,49 @@ function SpeedOfSound_Ph(P, h)
 end
 
 
+function SpeedOfSound_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        h = 1.0*uconvert(u"kJ/kg", hu)
+    catch
+        throw(UnitsError(hu, "Invalid input units."))
+    end
+
+    Region = RegionID_Ph(P.val, h.val)
+
+    if Region == :Region1
+        T = Region1_TPh(P.val, h.val)
+        return Region1(:SpeedOfSound, P.val, T)*u"m/s"
+    elseif Region == :Region2a
+        T = Region2a_TPh(P.val, h.val)
+        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
+    elseif Region == :Region2b
+        T = Region2b_TPh(P.val, h.val)
+        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
+    elseif Region == :Region2c
+        T = Region2c_TPh(P.val, h.val)
+        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
+    end
+end
+
 
 """
     SpeedOfSound_Ps
 
-    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa] and s [kJ/kgK]
-    The explicit backwards equations are only available in regions 1 and 2. Input outside these
-    will result in a DomainError exception.
+    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa]
+    and s [kJ/kgK].
+    The explicit backwards equations are only available in regions 1 and 2.
+    Input outside these will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of m/s via Uniful.jl.
 """
 function SpeedOfSound_Ps(P, s)
     Region = RegionID_Ps(P, s)
-    
+
     if Region == :Region1
         T = Region1_TPs(P, s)
         return Region1(:SpeedOfSound, P, T)
@@ -2728,6 +3516,36 @@ function SpeedOfSound_Ps(P, s)
     elseif Region == :Region2c
         T = Region2c_TPs(P, s)
         return Region2(:SpeedOfSound, P, T)
+    end
+end
+
+
+function SpeedOfSound_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+    try
+        P = 1.0*uconvert(u"MPa", Pu)
+    catch
+        throw(UnitsError(Pu, "Invalid input units."))
+    end
+    try
+        s = 1.0*uconvert(u"kJ/kg/K", su)
+    catch
+        throw(UnitsError(su, "Invalid input units."))
+    end
+
+    Region = RegionID_Ps(P.val, s.val)
+
+    if Region == :Region1
+        T = Region1_TPs(P.val, s.val)
+        return Region1(:SpeedOfSound, P.val, T)*u"m/s"
+    elseif Region == :Region2a
+        T = Region2a_TPs(P.val, s.val)
+        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
+    elseif Region == :Region2b
+        T = Region2b_TPs(P.val, s.val)
+        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
+    elseif Region == :Region2c
+        T = Region2c_TPs(P.val, s.val)
+        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
     end
 end
 

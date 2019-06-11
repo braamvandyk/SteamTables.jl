@@ -1,6 +1,13 @@
+name = "SteamTables"
+uuid = "43dc94dd-f011-5c5d-8ab2-5073432dc0ba"
+version = "0.3.0"
+author = ["Braam van Dyk <braam.vandyk@gmail.com>"]
+
 [deps]
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
-julia = "1.0"
-Roots = "^0.6.0"
+julia = "≥1.0"
+Roots = "≥0.6.0"
+Unitful = "≥0.15.0"
