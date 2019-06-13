@@ -3,15 +3,10 @@
 A Julia implementation of the IAPWS-IF97 properties of water and steam.
 Provides the Gibbs and Helmholtz free energies, enthalpy, entropy, Cp, Cv and sonic velocity.
 
-## Note:
-**While there is currently very little activity on this package, that is because it is basically complete. It is in active use by myself and not abandoned. I just don't have any features to add or known bugs to fix, with the possible execption of including Unitful.jl type units, if I ever get round to that.
-
-Support for Julia prior to v1.0.0 is dropped. There is no reason that this
-code won't work, but I am not maintaining an old version of Julia to test on.
-**
-
+Optional use of physical units via Unitful.jl
 
 Inputs are either P&T, P&h or P&s.
+
 
 [![SteamTables](http://pkg.julialang.org/badges/SteamTables_0.6.svg)](http://pkg.julialang.org/?pkg=SteamTables)
 
@@ -41,36 +36,53 @@ Windows: [![Build Status](https://ci.appveyor.com/api/projects/status/github/bra
 
   SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificS_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
 
-    SpecificG     [kJ/kg]   Specific Gibbs free energy
+Name     |  Units  | Properties returned
+-------------|---------|--------------------
+SpecificG    |[kJ/kg]  | Specific Gibbs free energy
+SpecificF    |[kJ/kg]  | Specific Helmholtz free energy
+SpecificV    |[m3/kg]  | Specific volume
+SpecificU    |[kJ/kg]  | Specific internal energy
+SpecificS    |[kJ/kgK] | Specific entropy
+SpecificH    |[kJ/kg]  | Specific enthalpy
+SpecificCp   |[kJ/kgK] | Specific isobaric heat capacity
+SpecificCv   |[kJ/kgK] | Specific isochoric heat capacity
+SpeedOfSound |[m/s]    | Sonic velocity
 
-    SpecificF     [kJ/kg]   Specific Helmholtz free energy
+Temperatures in K, Pressures in MPa
 
-    SpecificV     [m3/kg]   Specific volume
-
-    SpecificU     [kJ/kg]   Specific internal energy
-
-    SpecificS     [kJ/kgK]  Specific entropy
-
-    SpecificH     [kJ/kg]   Specific enthalpy
-
-    SpecificCp    [kJ/kgK]  Specific isobaric heat capacity
-
-    SpecificCv    [kJ/kgK]  Specific isochoric heat capacity
-
-    SpeedOfSound  [m/s]     Sonic velocity
-
-    Temperatures in K, Pressures in MPa
 
 ## Exported constants
 
-    R  = 0.461526   [kJ/kg/K] Universal gas constant
+Name |   Value    |  Units   | Physical Constant
+-----|------------|----------|-------------------
+R    | 0.461526   |[kJ/kg/K] |Universal gas constant
+Tc   | 647.096    |[K]       |Critical temperature of water
+Pc   | 22.064     |[kg/m3]   |Critical density of water
+T3   | 273.16     |[K]       |Triple point temperature of water
+P3   | 611.657E-6 |[MPa]     |Triple point pressure of water
+Mr   | 18.01528   |[kg/kmol] |Molecular weight of water
 
-    Tc = 647.096    [K]       Critical temperature of water
+## Use of physical units
 
-    Pc = 22.064     [kg/m3]   Critical density of water
+If unitless values are passed, the physical units listed above are assumed and the returned values will also be in these units, e.g. Kelvin for temperature, MPa for pressure.
 
-    T3 = 273.16     [K]       Triple point temperature of water
+Optionally, however, you may pass Unitful.jl Quantity values, e.g. 100u"°C". The returned values will still be in the specified units, but may be easily converted via Unitful's `uconvert()`
 
-    P3 = 611.657E-6 [MPa]     Triple point pressure of water
+### Example
+```
+julia> using SteamTables, Unitful
 
-    Mr = 18.01528   [kg/kmol] Molecular weight of water
+julia> Psat(400)
+0.24575318630408327
+
+julia> Psat(400u"K")
+0.24575318630408327 MPa
+
+julia> Psat(300u"°C")
+8.587708329557278 MPa
+
+julia> uconvert(u"psi", Psat(400u"K"))
+35.643486181534875 psi
+```
+
+For more details on the use of Unitful, see the package documentation.
