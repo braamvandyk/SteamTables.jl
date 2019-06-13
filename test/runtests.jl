@@ -1,17 +1,17 @@
 using SteamTables
-@static if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
+using Unitful
+using Test
 
-    mysignif(x, n) = signif(x, n)
-else
-    using Test
-
-    mysignif(x, n) = round(x; sigdigits = n)
+mysignif(x, n) = round(x; sigdigits = n)
+function mysignif(x::Q, n::Int) where Q <: Quantity
+    y = Quantity(round(x.val, sigdigits = n), unit(x))
+    return y
 end
+
 
 const TestDigits = 6 # number of significant digits to test selected functions to
 
-@testset "Region 1, forwards equations for P and T              " begin 
+@testset "Region 1, forwards equations for P and T              " begin
     include("testreg1.jl")
 end
 

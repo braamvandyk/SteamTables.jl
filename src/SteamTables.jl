@@ -77,7 +77,11 @@ export Psat, Tsat,
 using Roots
 using Unitful
 
-struct UnitsError <: Exception end
+struct UnitsError <: Exception
+    var
+    message::String
+end
+Base.showerror(io::IO, e::UnitsError) = print(io, "UnitsError with ",e.var, ": ", e.message)
 
 
 """
@@ -1985,7 +1989,7 @@ function RegionID_Ph(P, h)::Symbol
         if Tsat(P) ≤ T ≤ 1073.15
             return :Region2a #, Region2(:SpecificH, P, T) # Return forward h for consistency check
         else
-            throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
+            throw(DomainError((P, T), "Pressure/Temperature outside valid ranges.")) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
         end
     else
         htest = B2bc(:P, P)
@@ -2079,7 +2083,7 @@ function RegionID_Ps(P, s)::Symbol
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2c #, Region2(:SpecificS, P, T) # Return forward s for consistency check
             else
-                throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")))
+                throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
             end
         else
             # could be Region 2b
@@ -2091,11 +2095,12 @@ function RegionID_Ps(P, s)::Symbol
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2b #, Region2(:SpecificS, P, T) # Return forward s for consistency check
             else
-                throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")))
+                throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
+
             end
         end
     end
-    throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")))
+    throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
 end
 
 
@@ -2123,11 +2128,11 @@ function Psat(T)
 end
 
 
-function Psat(Tu::Q) where Q <: Quantity
+function Psat(T::Q) where Q <: Quantity
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     if T3 ≤ T.val ≤ Tc
@@ -2154,11 +2159,11 @@ function Tsat(P)
 end
 
 
-function Tsat(Pu::Q) where Q <: Quantity
+function Tsat(P::Q) where Q <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
 
     if 0.611_213E-3 ≤ P.val ≤ Pc
@@ -2192,29 +2197,25 @@ function SpecificG(P, T)
 end
 
 
-function SpecificG(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificG(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
+        T = 1.0*uconvert(u"K", T)
+        Region = RegionID(P.val, T.val)
+
+        if Region == :Region1
+            return Region1(:SpecificG, P.val, T.val)*u"kJ/kg"
+        elseif Region == :Region2
+            return Region2(:SpecificG, P.val, T.val)*u"kJ/kg"
+        elseif Region == :Region3
+            return Region3(:SpecificG, P.val, T.val)*u"kJ/kg"
+        elseif Region == :Region5
+            return Region5(:SpecificG, P.val, T.val)*u"kJ/kg"
+        end
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", Tu)
-    catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError((P,T), "Invalid input units."))
     end
 
-    Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificG, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region2
-        return Region2(:SpecificG, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region3
-        return Region3(:SpecificG, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region5
-        return Region5(:SpecificG, P.val, T.val)*u"kJ/kg"
-    end
 end
 
 
@@ -2246,16 +2247,16 @@ function SpecificG_Ph(P, h)
 end
 
 
-function SpecificG_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificG_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -2305,16 +2306,16 @@ function SpecificG_Ps(P, s)
 end
 
 
-function SpecificG_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificG_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/kg/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
@@ -2358,16 +2359,16 @@ function SpecificF(P, T)
 end
 
 
-function SpecificF(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificF(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -2413,16 +2414,16 @@ function SpecificF_Ph(P, h)
 end
 
 
-function SpecificFu_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificF_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -2472,16 +2473,16 @@ function SpecificF_Ps(P, s)
 end
 
 
-function SpecificF_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificF_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/kg/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(su, "Invalid input units."))
+        throw(UnitsError(s, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
@@ -2524,16 +2525,16 @@ function SpecificV(P, T)
 end
 
 
-function SpecificV(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificV(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -2578,16 +2579,16 @@ function SpecificV_Ph(P, h)
 end
 
 
-function SpecificV_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificV_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -2637,16 +2638,16 @@ function SpecificV_Ps(P, s)
 end
 
 
-function SpecificV_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificV_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/kg/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(su, "Invalid input units."))
+        throw(UnitsError(s, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
@@ -2690,16 +2691,16 @@ function SpecificU(P, T)
 end
 
 
-function SpecificU(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificU(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -2745,16 +2746,16 @@ function SpecificU_Ph(P, h)
 end
 
 
-function SpecificU_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificU_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -2804,16 +2805,16 @@ function SpecificU_Ps(P, s)
 end
 
 
-function SpecificU_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificU_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/kg/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(su, "Invalid input units."))
+        throw(UnitsError(s, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
@@ -2857,16 +2858,16 @@ function SpecificS(P, T)
 end
 
 
-function SpecificS(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificS(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -2912,16 +2913,16 @@ function SpecificS_Ph(P, h)
 end
 
 
-function SpecificS_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificS_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -2965,16 +2966,16 @@ function SpecificH(P, T)
 end
 
 
-function SpecificH(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificH(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -3020,16 +3021,16 @@ function SpecificH_Ps(P, s)
 end
 
 
-function SpecificH_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificH_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/k/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(su, "Invalid input units."))
+        throw(UnitsError(s, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
@@ -3075,14 +3076,14 @@ end
 
 function SpecificCP(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -3128,16 +3129,16 @@ function SpecificCP_Ph(P, h)
 end
 
 
-function SpecificCP_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificCP_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -3187,16 +3188,16 @@ function SpecificCP_Ps(P, s)
 end
 
 
-function SpecificCP_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificCP_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/kg/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(su, "Invalid input units."))
+        throw(UnitsError(s, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
@@ -3240,16 +3241,16 @@ function SpecificCV(P, T)
 end
 
 
-function SpecificCV(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificCV(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -3295,16 +3296,16 @@ function SpecificCV_Ph(P, h)
 end
 
 
-function SpecificCV_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificCV_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -3354,16 +3355,16 @@ function SpecificCV_Ps(P, s)
 end
 
 
-function SpecificCV_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpecificCV_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/kg/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(su, "Invalid input units."))
+        throw(UnitsError(s, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
@@ -3406,16 +3407,16 @@ function SpeedOfSound(P, T)
 end
 
 
-function SpeedOfSound(Pu::Q1, Tu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpeedOfSound(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        T = 1.0*uconvert(u"K", Tu)
+        T = 1.0*uconvert(u"K", T)
     catch
-        throw(UnitsError(Tu, "Invalid input units."))
+        throw(UnitsError(T, "Invalid input units."))
     end
 
     Region = RegionID(P.val, T.val)
@@ -3461,16 +3462,16 @@ function SpeedOfSound_Ph(P, h)
 end
 
 
-function SpeedOfSound_Ph(Pu::Q1, hu::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpeedOfSound_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        h = 1.0*uconvert(u"kJ/kg", hu)
+        h = 1.0*uconvert(u"kJ/kg", h)
     catch
-        throw(UnitsError(hu, "Invalid input units."))
+        throw(UnitsError(h, "Invalid input units."))
     end
 
     Region = RegionID_Ph(P.val, h.val)
@@ -3520,16 +3521,16 @@ function SpeedOfSound_Ps(P, s)
 end
 
 
-function SpeedOfSound_Ps(Pu::Q1, su::Q2) where Q1 <: Quantity where Q2 <: Quantity
+function SpeedOfSound_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
-        P = 1.0*uconvert(u"MPa", Pu)
+        P = 1.0*uconvert(u"MPa", P)
     catch
-        throw(UnitsError(Pu, "Invalid input units."))
+        throw(UnitsError(P, "Invalid input units."))
     end
     try
-        s = 1.0*uconvert(u"kJ/kg/K", su)
+        s = 1.0*uconvert(u"kJ/kg/K", s)
     catch
-        throw(UnitsError(su, "Invalid input units."))
+        throw(UnitsError(s, "Invalid input units."))
     end
 
     Region = RegionID_Ps(P.val, s.val)
