@@ -3436,13 +3436,9 @@ end
 """
     SpeedOfSound_Ph
 
-    Utility function that returns the specific entropy [kJ/kgK] from P [MPa]
-    and h [kJ/kg].
-    The explicit backwards equations are only available in regions 1 and 2.
-    Input outside these will result in a DomainError exception.
+    Utility function that returns the sonic velocity [m/s] from P [MPa] and h [kJ/kg].
     If inputs have associated units, the value is returned with associated
-    units of m/s via Uniful.jl.
-"""
+    units of m/s via Uniful.jl."""
 function SpeedOfSound_Ph(P, h)
     Region = RegionID_Ph(P, h)
 
@@ -3495,10 +3491,7 @@ end
 """
     SpeedOfSound_Ps
 
-    Utility function that returns the speciic entropy [kJ/kgK] from P [MPa]
-    and s [kJ/kgK].
-    The explicit backwards equations are only available in regions 1 and 2.
-    Input outside these will result in a DomainError exception.
+    Utility function that returns the sonic velocity [m/s] from P [MPa] and s [kJ/kgK].
     If inputs have associated units, the value is returned with associated
     units of m/s via Uniful.jl.
 """
