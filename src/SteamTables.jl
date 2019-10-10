@@ -10,7 +10,7 @@ Provides the Gibbs and Helmholtz free energies, enthalpy, entropy Cp, Cv and son
 
 ### Single input:
 
-  Psat(T) and Tsat(P) returns the saturation linearindices
+  Psat(T) and Tsat(P) returns the saturation temperature or pressure
 
 ### Two inputs:
 
