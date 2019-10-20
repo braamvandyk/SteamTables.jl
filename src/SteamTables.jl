@@ -14,6 +14,7 @@ Provides the Gibbs and Helmholtz free energies, enthalpy, entropy Cp, Cv and son
   SatDensL(T) and SatDensV(T) return the saturated densities
   SatHL(T) and SatHV(T) return the saturated enthalpies
   SatSL(T) and SatSV(T) return the saturated entropies
+  DeltaHvap(T) returns the latent heat of vaporisation
 
 ### Two inputs:
 
@@ -24,11 +25,18 @@ P and T
 P and h
   SpecificG_Ph, SpecificF_Ph,  SpecificV_Ph,  SpecificU_Ph,   SpecificS_Ph,
   SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph
+  Quality_Ph
 
 P and s
   SpecificG_Ps, SpecificF_Ps,  SpecificV_Ps,  SpecificU_Ps,   SpecificS_Ps,
   SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
+  Quality_Ps
 
+T and h
+  Quality_Th
+
+T and s
+  Quality_Ts
 
 SpecificG    [kJ/kg]  Specific Gibbs free energy
 SpecificF    [kJ/kg]  Specific Helmholtz free energy
@@ -3914,5 +3922,74 @@ function SatSV(T::Q) where Q <: Quantity
     end
 end
 
+
+"""
+    DeltaHvap
+
+    Returns the latent heat of vaporisation [J/kg] at T [K].
+    If inputs have associated units, the value is returned with associated
+    units of J/kg via Uniful.jl.
+"""
+function DeltaHvap(T)
+    return SatHV(T) - SatHL(T)
+end
+
+
+"""
+    Quality_Ph
+
+    Returns vapour quality from P and h.
+"""
+function Quality_Ph(P, h)
+    # Get the temperature from P, assuming saturated
+    T = Tsat(P)
+    hl = SatHL(T)
+    hv = SatHV(T)
+
+    return (h - hl)/(hv - hl)
+end
+
+
+"""
+    Quality_Th
+
+    Returns vapour quality from T and h.
+"""
+function Quality_Th(T, h)
+    # Get the temperature from P, assuming saturated
+    hl = SatHL(T)
+    hv = SatHV(T)
+
+    return (h - hl)/(hv - hl)
+end
+
+
+"""
+    Quality_Ps
+
+    Returns vapour quality from P and s.
+"""
+function Quality_Ps(P, s)
+    # Get the temperature from P, assuming saturated
+    T = Tsat(P)
+    sl = SatSL(T)
+    sv = SatSV(T)
+
+    return (s - sl)/(sv - sl)
+end
+
+
+"""
+    Quality_Th
+
+    Returns vapour quality from T and s.
+"""
+function Quality_Ts(T, s)
+    # Get the temperature from P, assuming saturated
+    sl = SatSL(T)
+    sv = SatSV(T)
+
+    return (s - sl)/(sv - sl)
+end
 
 end # module

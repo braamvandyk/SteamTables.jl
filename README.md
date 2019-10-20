@@ -20,10 +20,11 @@ Psat(T)      |MPa    |Saturation pressure
 Tsat(P)      |K      |Saturation temperature
 SatDensL(T)  |kg/m3  |Saturated liquid density
 SatDensV(T)  |kg/m3  |Saturated vapour density
-SatHL(T)     |kg/m3  |Saturated liquid enthalpy
-SatHV(T)     |kg/m3  |Saturated vapour enthalpy
-SatSL(T)     |kg/m3K |Saturated liquid entropy
-SatSV(T)     |kg/m3K |Saturated vapour entropy
+SatHL(T)     |J/kg   |Saturated liquid enthalpy
+SatHV(T)     |J/kg   |Saturated vapour enthalpy
+SatSL(T)     |J/kgK  |Saturated liquid entropy
+SatSV(T)     |J/kgK  |Saturated vapour entropy
+DeltaHvap    |J/kg   |Latent heat of vaporisation  
 
 ### Two inputs
 
@@ -33,11 +34,18 @@ SatSV(T)     |kg/m3K |Saturated vapour entropy
 
 #### P and h
 
-    SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph
+    SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph, Quality_Ph
 
 #### P and s
 
-    SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificS_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
+    SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificS_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps, Quality_Ps
+
+#### T and h
+    Quality_Th
+
+#### T and s
+    Quality_Ts
+
 
 Name         |Units  |Properties returned
 -------------|-------|-------------------
@@ -50,6 +58,7 @@ SpecificH    |kJ/kg  |Specific enthalpy
 SpecificCp   |kJ/kgK |Specific isobaric heat capacity
 SpecificCv   |kJ/kgK |Specific isochoric heat capacity
 SpeedOfSound |m/s    |Sonic velocity
+Quality      |       |Vapour quality  
 
 Temperatures in K, Pressures in MPa
 
