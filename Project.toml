@@ -4,10 +4,12 @@ author = ["Braam van Dyk <braam.vandyk@gmail.com>"]
 version = "1.0.1"
 
 [deps]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
+ForwardDiff = "≥10.0"
 Roots = "≥0.6.0"
 Unitful = "≥0.15.0"
 julia = "≥1.0"

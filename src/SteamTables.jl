@@ -11,6 +11,9 @@ Provides the Gibbs and Helmholtz free energies, enthalpy, entropy Cp, Cv and son
 ### Single input:
 
   Psat(T) and Tsat(P) returns the saturation temperature or pressure
+  SatDensL(T) and SatDensV(T) return the saturated densities
+  SatHL(T) and SatHV(T) return the saturated enthalpies
+  SatSL(T) and SatSV(T) return the saturated entropies
 
 ### Two inputs:
 
@@ -46,7 +49,8 @@ in the calling function.
 ##Exported constants
   R  = 0.461526   [kJ/kg/K] Universal gas constant
   Tc = 647.096    [K]       Critical temperature of water
-  Pc = 22.064     [kg/m3]   Critical density of water
+  Pc = 22.064     [MPa]     Critical pressure of water
+  ρc = 322.       [kg/m3]   Critical density of water
   T3 = 273.16     [K]       Triple point temperature of water
   P3 = 611.657E-6 [MPa]     Triple point pressure of water
   Mr = 18.01528   [kg/kmol] Molecular weight of water
@@ -69,13 +73,17 @@ const P3 = 611.657E-6   #MPa        Triple point pressure of water
 const Mr = 18.01528     #kg/kmol    Molecular weight of water
 
 export Psat, Tsat,
+       SatDensL, SatDensV,
+       SatHL, SatHV, SatSL, SatSV,
        SpecificG,    SpecificF,    SpecificV,    SpecificU,    SpecificS,    SpecificH,    SpecificCP,    SpecificCV,    SpeedOfSound,
        SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
        SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
+       SatDensL, SatDensV,
        R, Tc, Pc, ρc, T3, P3, Mr
 
 using Roots
 using Unitful
+using ForwardDiff
 
 struct UnitsError <: Exception
     var
@@ -1743,6 +1751,7 @@ function Region3(Output::Symbol, P, T)
     end
 end
 
+
 """
     Region4
 
@@ -1785,6 +1794,7 @@ function Region4(InputType::Symbol, InputValue)
         throw(DomainError(InputType, "Unknown input. Expecting :T or :P"))
     end
 end
+
 
 """
     Region5
@@ -2151,7 +2161,7 @@ end
     units of K via Uniful.jl.
 """
 function Tsat(P)
-    if 0.611_213E-3 ≤ P ≤ Pc # Note that botton limit nor exactly P3
+    if 0.611_213E-3 ≤ P ≤ Pc # Note that botton limit not exactly P3
         return Region4(:P, P)
     else
         throw(DomainError(P, "Pressure not between tripple and critical points"))
@@ -3542,5 +3552,367 @@ function SpeedOfSound_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
         return Region2(:SpeedOfSound, P.val, T)*u"m/s"
     end
 end
+
+
+"""
+    SatDensL
+
+    Returns the saturated liquid density [kg/m3] from T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kg/m3 via Uniful.jl.
+"""
+function SatDensL(T)
+    if T3 ≤ T ≤ Tc
+        b = [   1.992_740_64,
+                1.099_653_42,
+               -0.510_839_303,
+               -1.754_934_79,
+              -45.517_035_2,
+               -6.746_944_50E5]
+
+        θ = T/Tc
+        τ = 1 - θ
+
+        return ρc*(1 + b[1]*τ^(1/3) + b[2]*τ^(2/3) + b[3]*τ^(5/3) + b[4]*τ^(16/3)
+               + b[5]*τ^(43/3) + b[6]*τ^(110/3))
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end #SatDensL
+
+
+function SatDensL(T::Q) where Q <: Quantity
+    try
+        T = 1.0*uconvert(u"K", T)
+    catch
+        throw(UnitsError(T, "Invalid input units."))
+    end
+
+    if T3 ≤ T.val ≤ Tc
+        b = [   1.992_740_64,
+                1.099_653_42,
+               -0.510_839_303,
+               -1.754_934_79,
+              -45.517_035_2,
+               -6.746_944_50E5]
+
+        θ = T.val/Tc
+        τ = 1 - θ
+
+        return ρc*(1 + b[1]*τ^(1/3) + b[2]*τ^(2/3) + b[3]*τ^(5/3) + b[4]*τ^(16/3)
+               + b[5]*τ^(43/3) + b[6]*τ^(110/3))*u"kg/m^3"
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end #SatDensL
+
+
+"""
+    SatDensV
+
+    Returns the saturated vapour density [kg/m3] from T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kg/m3 via Uniful.jl.
+"""
+function SatDensV(T)
+    if T3 ≤ T ≤ Tc
+        c = [  -2.031_502_40,
+               -2.683_029_40,
+               -5.386_264_92,
+              -17.299_160_5,
+              -44.758_658_1,
+              -63.920_106_3
+        ]
+
+        θ = T/Tc
+        τ = 1 - θ
+
+        return ρc*exp(c[1]*τ^(2/6) + c[2]*τ^(4/6) + c[3]*τ^(8/6) + c[4]*τ^(18/6)
+             + c[5]*τ^(37/6) + c[6]*τ^(71/6))
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end #SatDensV
+
+
+function SatDensV(T::Q) where Q <: Quantity
+    try
+        T = 1.0*uconvert(u"K", T)
+    catch
+        throw(UnitsError(T, "Invalid input units."))
+    end
+
+    if T3 ≤ T.val ≤ Tc
+        c = [  -2.031_502_40,
+               -2.683_029_40,
+               -5.386_264_92,
+              -17.299_160_5,
+              -44.758_658_1,
+              -63.920_106_3
+        ]
+
+        θ = T.val/Tc
+        τ = 1 - θ
+
+        return ρc*exp(c[1]*τ^(2/6) + c[2]*τ^(4/6) + c[3]*τ^(8/6) + c[4]*τ^(18/6)
+             + c[5]*τ^(37/6) + c[6]*τ^(71/6))*u"kg/m^3"
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end #SatDensV
+
+
+"""
+    Psat2
+
+    Do not call this function, but rather use Psat().
+    Returns the saturated vapour pressure according to IAPWS SR1-86(1992)
+    with T in K and P in MPa.
+    This replaces the Region 4 equations for Psat and is used to calcualate
+    the saturated enthalpy and entropy to match the values in IAPWS SR1-86(1992)
+    It is not used in Tsat(), as the difference in vapour pressure is in the
+    8th decimal at the boiling point.
+"""
+function Psat2(T)
+
+    a = [ -7.85951783000,
+           1.84408259000,
+          -11.78664970000,
+          22.68074110000,
+         -15.96187190000,
+           1.80122502000
+        ]
+
+    θ = T/Tc
+    τ = 1 - θ
+
+    return Pc*exp(Tc/T*(a[1]*τ + a[2]*τ^1.5 + a[3]*τ^3 + a[4]*τ^3.5
+                      + a[5]*τ^4 + a[6]*τ^7.5))
+end
+
+
+"""
+    SatHL
+
+    Returns the saturated liquid specific enthalpy [J/kg] from T [K].
+    If inputs have associated units, the value is returned with associated
+    units of J/kg via Uniful.jl.
+"""
+function SatHL(T)
+    if T3 ≤ T ≤ Tc
+        α0 = 1000
+        dα = -1135.905_627_715
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T/Tc
+        α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
+        return α + T/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T)
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
+
+function SatHL(T::Q) where Q <: Quantity
+    try
+        T = 1.0*uconvert(u"K", T)
+    catch
+        throw(UnitsError(T, "Invalid input units."))
+    end
+
+    if T3 ≤ T.val ≤ Tc
+        α0 = 1000
+        dα = -1135.905_627_715
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T.val/Tc
+        α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
+        return (α + T.val/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
+
+"""
+    SatHV
+
+    Returns the saturated vapour specific enthalpy [J/kg] from T [K].
+    If inputs have associated units, the value is returned with associated
+    units of J/kg via Uniful.jl.
+"""
+function SatHV(T)
+    if T3 ≤ T ≤ Tc
+        α0 = 1000
+        dα = -1135.905_627_715
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T/Tc
+        α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
+        return α + T/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T)
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
+
+function SatHV(T::Q) where Q <: Quantity
+    try
+        T = 1.0*uconvert(u"K", T)
+    catch
+        throw(UnitsError(T, "Invalid input units."))
+    end
+
+    if T3 ≤ T.val ≤ Tc
+        α0 = 1000
+        dα = -1135.905_627_715
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T.val/Tc
+        α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
+        return (α + T.val/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
+
+"""
+    SatSL
+
+    Returns the saturated liquid specific entropy [J/kg] from T [K].
+    If inputs have associated units, the value is returned with associated
+    units of J/kgK via Uniful.jl.
+"""
+function SatSL(T)
+    if T3 ≤ T ≤ Tc
+        α0 = 1000
+        ϕ0 = α0/Tc
+
+        dϕ = 2319.5246
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T/Tc
+        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
+                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
+        return ϕ + 1/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T)
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
+
+function SatSL(T::Q) where Q <: Quantity
+    try
+        T = 1.0*uconvert(u"K", T)
+    catch
+        throw(UnitsError(T, "Invalid input units."))
+    end
+
+    if T3 ≤ T.val ≤ Tc
+        α0 = 1000
+        ϕ0 = α0/Tc
+
+        dϕ = 2319.5246
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T.val/Tc
+        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
+                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
+        return (ϕ + 1/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
+
+"""
+    SatSV
+
+    Returns the saturated liquid specific entropy [J/kg] from T [K].
+    If inputs have associated units, the value is returned with associated
+    units of J/kgK via Uniful.jl.
+"""
+function SatSV(T)
+    if T3 ≤ T ≤ Tc
+        α0 = 1000
+        ϕ0 = α0/Tc
+
+        dϕ = 2319.5246
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T/Tc
+        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
+                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
+        return ϕ + 1/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T)
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
+
+function SatSV(T::Q) where Q <: Quantity
+    try
+        T = 1.0*uconvert(u"K", T)
+    catch
+        throw(UnitsError(T, "Invalid input units."))
+    end
+
+    if T3 ≤ T.val ≤ Tc
+        α0 = 1000
+        ϕ0 = α0/Tc
+
+        dϕ = 2319.5246
+        d = [   -5.651_349_98E-8,
+              2690.666_31,
+               127.287_297,
+              -135.003_439,
+                 0.981_825_814
+            ]
+
+        θ = T.val/Tc
+        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
+                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
+        return (ϕ + 1/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+    else
+        throw(DomainError(T, "Temperature not between tripple and critical points"))
+    end
+end
+
 
 end # module
