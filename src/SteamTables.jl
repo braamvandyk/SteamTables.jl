@@ -83,10 +83,11 @@ const Mr = 18.01528     #kg/kmol    Molecular weight of water
 export Psat, Tsat,
        SatDensL, SatDensV,
        SatHL, SatHV, SatSL, SatSV,
+       DeltaHvap,
+       Quality_Ph, Quality_Th, Quality_Ps, Quality_Ts,
        SpecificG,    SpecificF,    SpecificV,    SpecificU,    SpecificS,    SpecificH,    SpecificCP,    SpecificCV,    SpeedOfSound,
-       SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
-       SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps, SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
-       SatDensL, SatDensV,
+       SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph,               SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
+       SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps,               SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
        R, Tc, Pc, ρc, T3, P3, Mr
 
 using Roots
@@ -2122,6 +2123,35 @@ function RegionID_Ps(P, s)::Symbol
 end
 
 
+"""
+    Psat2
+
+    Do not call this function, but rather use Psat().
+    Returns the saturated vapour pressure according to IAPWS SR1-86(1992)
+    with T in K and P in MPa.
+    This replaces the Region 4 equations for Psat and is used to calcualate
+    the saturated enthalpy and entropy to match the values in IAPWS SR1-86(1992)
+    It is not used in Tsat(), as the difference in vapour pressure is in the
+    8th decimal at the boiling point.
+"""
+function Psat2(T)
+
+    a = [ -7.85951783000,
+           1.84408259000,
+          -11.78664970000,
+          22.68074110000,
+         -15.96187190000,
+           1.80122502000
+        ]
+
+    θ = T/Tc
+    τ = 1 - θ
+
+    return Pc*exp(Tc/T*(a[1]*τ + a[2]*τ^1.5 + a[3]*τ^3 + a[4]*τ^3.5
+                      + a[5]*τ^4 + a[6]*τ^7.5))
+end
+
+
 #============================================================================
 =============================================================================
                             Exported functions:
@@ -2968,6 +2998,11 @@ end
     and T [K].
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
+
+    Note: Do not use this function to attempt to find values on the saturation
+    line, as any rounding errors anywhere will result in a point on either side
+    of the phase boundary with large differences in enthalpy. Use SatHL/SatHV
+    for saturated phase enthalpies.
 """
 function SpecificH(P, T)
     Region = RegionID(P, T)
@@ -3019,6 +3054,11 @@ end
     Input outside these will result in a DomainError exception.
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
+
+    Note: Do not use this function to attempt to find values on the saturation
+    line, as any rounding errors anywhere will result in a point on either side
+    of the phase boundary with large differences in enthalpy. Use SatHL/SatHV
+    for saturated phase enthalpies,
 """
 function SpecificH_Ps(P, s)
     Region = RegionID_Ps(P, s)
@@ -3671,35 +3711,6 @@ end #SatDensV
 
 
 """
-    Psat2
-
-    Do not call this function, but rather use Psat().
-    Returns the saturated vapour pressure according to IAPWS SR1-86(1992)
-    with T in K and P in MPa.
-    This replaces the Region 4 equations for Psat and is used to calcualate
-    the saturated enthalpy and entropy to match the values in IAPWS SR1-86(1992)
-    It is not used in Tsat(), as the difference in vapour pressure is in the
-    8th decimal at the boiling point.
-"""
-function Psat2(T)
-
-    a = [ -7.85951783000,
-           1.84408259000,
-          -11.78664970000,
-          22.68074110000,
-         -15.96187190000,
-           1.80122502000
-        ]
-
-    θ = T/Tc
-    τ = 1 - θ
-
-    return Pc*exp(Tc/T*(a[1]*τ + a[2]*τ^1.5 + a[3]*τ^3 + a[4]*τ^3.5
-                      + a[5]*τ^4 + a[6]*τ^7.5))
-end
-
-
-"""
     SatHL
 
     Returns the saturated liquid specific enthalpy [J/kg] from T [K].
@@ -3980,7 +3991,7 @@ end
 
 
 """
-    Quality_Th
+    Quality_Ts
 
     Returns vapour quality from T and s.
 """
