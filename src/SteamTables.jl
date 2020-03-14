@@ -85,9 +85,12 @@ export Psat, Tsat,
        SatHL, SatHV, SatSL, SatSV,
        DeltaHvap,
        Quality_Ph, Quality_Th, Quality_Ps, Quality_Ts,
-       SpecificG,    SpecificF,    SpecificV,    SpecificU,    SpecificS,    SpecificH,    SpecificCP,    SpecificCV,    SpeedOfSound,
-       SpecificG_Ph, SpecificF_Ph, SpecificV_Ph, SpecificU_Ph, SpecificS_Ph,               SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
-       SpecificG_Ps, SpecificF_Ps, SpecificV_Ps, SpecificU_Ps,               SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
+       SpecificG,     SpecificF,     SpecificV,    SpecificU,    SpecificS,
+       SpecificH,     SpecificCP,    SpecificCV,   SpeedOfSound,
+       SpecificG_Ph,  SpecificF_Ph,  SpecificV_Ph, SpecificU_Ph, SpecificS_Ph,
+       SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
+       SpecificG_Ps,  SpecificF_Ps,  SpecificV_Ps, SpecificU_Ps, SpecificH_Ps,
+       SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
        R, Tc, Pc, ρc, T3, P3, Mr
 
 using Roots
