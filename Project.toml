@@ -9,7 +9,7 @@ Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
-ForwardDiff = "^0.10"
+ForwardDiff = "^0.8"
 Roots = "^1.0"
 Unitful = "^0.15"
 julia = "^1.0"
