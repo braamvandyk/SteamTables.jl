@@ -1751,7 +1751,9 @@ end
     Pass through properties from Region3ρ
 """
 function Region3(Output::Symbol, P, T)
-    ρ0 = 1000*P/(R*T) #Starting value from ideal gas
+    # Start with a higher density to fix the problems in convergence.
+    # TODO Replace this with a density from Peng-Robinson or similar EoS
+    ρ0 = 6*1000*P/(R*T) #Starting value from ideal gas
 
     f(ρ) = Region3_ρ(:Pressure, ρ, T) - P
     ρ = Roots.find_zero(f, ρ0)
@@ -1919,9 +1921,9 @@ function RegionID(P, T)::Symbol
         273.15K ≤ T ≤ 623.15K  Psat(T) ≤ P ≤ 100MPa
 
     Region 2:
-    273.15K ≤ T ≤ 623.15K  0 ≤ P ≤ Psat(T)
-    623.15K <  T ≤ 863.15K  0 <  P ≤ P(T) from B23-model
-    863.15K <  T ≤ 1073.15K 0 <  P ≤ 100MPa
+        273.15K ≤ T ≤ 623.15K  0 ≤ P ≤ Psat(T)
+        623.15K <  T ≤ 863.15K  0 <  P ≤ P(T) from B23-model
+        863.15K <  T ≤ 1073.15K 0 <  P ≤ 100MPa
 
     Region 2meta:
     From the saturated-vapour line to the 5% equlibrium moisture line, a.k.a the
