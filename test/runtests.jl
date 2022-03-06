@@ -4,7 +4,8 @@ using Test
 
 mysignif(x, n) = round(x; sigdigits = n)
 function mysignif(x::Q, n::Int) where Q <: Quantity
-    y = Quantity(round(x.val, sigdigits = n), unit(x))
+    z = x.val
+    y = Quantity(round(z, sigdigits = n), unit(x))
     return y
 end
 

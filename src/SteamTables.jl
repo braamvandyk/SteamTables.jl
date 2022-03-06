@@ -1753,7 +1753,8 @@ end
 function Region3(Output::Symbol, P, T)
     # Start with a higher density to fix the problems in convergence.
     # TODO Replace this with a density from Peng-Robinson or similar EoS
-    ρ0 = 6*1000*P/(R*T) #Starting value from ideal gas
+    # ρ0 = 1000*P/(R*T) #Starting value from ideal gas
+    ρ0 = 500.0
 
     f(ρ) = Region3_ρ(:Pressure, ρ, T) - P
     ρ = Roots.find_zero(f, ρ0)
