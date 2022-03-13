@@ -7,8 +7,8 @@ Optional use of physical units via Unitful.jl
 
 Inputs are either P&T, P&h or P&s.
 
-[![Build Status](https://travis-ci.org/braamvandyk/SteamTables.jl.svg?branch=master)](https://travis-ci.org/braamvandyk/SteamTables.jl)
-[![Coverage Status](https://coveralls.io/repos/braamvandyk/SteamTables.jl/badge.svg?branch=master)](https://coveralls.io/r/braamvandyk/SteamTables.jl?branch=master)
+[![Build status (Github Actions)](https://github.com/sylvaticus/MyAwesomePackage.jl/workflows/CI/badge.svg)](https://github.com/sylvaticus/MyAwesomePackage.jl/actions)
+[![codecov.io](http://codecov.io/github/sylvaticus/MyAwesomePackage.jl/coverage.svg?branch=main)](http://codecov.io/github/sylvaticus/MyAwesomePackage.jl?branch=main)
 
 ## Exported functions
 
