@@ -1,5 +1,3 @@
-__precompile__()
-
 """
 # SteamTables
 
@@ -71,6 +69,7 @@ in the calling function.
 """
 module SteamTables
 
+using PrecompileTools
 
 const R = 0.461526      #kJ/kg/K    Universal gas constant
 const Tc = 647.096      #K          Critical temperature of water
@@ -4007,6 +4006,12 @@ function Quality_Ts(T, s)
     sv = SatSV(T)
 
     return (s - sl)/(sv - sl)
+end
+
+@setup_workload begin
+    @compile_workload begin
+        include("compilefile.jl")
+    end
 end
 
 end # module
