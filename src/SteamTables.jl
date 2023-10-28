@@ -3720,7 +3720,7 @@ end #SatDensV
 
     Returns the saturated liquid specific enthalpy [J/kg] from T [K].
     If inputs have associated units, the value is returned with associated
-    units of J/kg via Uniful.jl.
+    units of kJ/kg via Uniful.jl.
 """
 function SatHL(T)
     if T3 ≤ T ≤ Tc
@@ -3735,7 +3735,7 @@ function SatHL(T)
 
         θ = T/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return α + T/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T)
+        return (α + T/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3761,7 +3761,7 @@ function SatHL(T::Q) where Q <: Quantity
 
         θ = T.val/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T.val/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+        return (α + T.val/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg"
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3773,7 +3773,7 @@ end
 
     Returns the saturated vapour specific enthalpy [J/kg] from T [K].
     If inputs have associated units, the value is returned with associated
-    units of J/kg via Uniful.jl.
+    units of kJ/kg via Uniful.jl.
 """
 function SatHV(T)
     if T3 ≤ T ≤ Tc
@@ -3788,7 +3788,7 @@ function SatHV(T)
 
         θ = T/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return α + T/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T)
+        return (α + T/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3814,7 +3814,7 @@ function SatHV(T::Q) where Q <: Quantity
 
         θ = T.val/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T.val/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+        return (α + T.val/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg"
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3833,7 +3833,7 @@ function SatSL(T)
         α0 = 1000
         ϕ0 = α0/Tc
 
-        dϕ = 2319.5246
+        dϕ =  2319.5246
         d = [   -5.651_349_98E-8,
               2690.666_31,
                127.287_297,
@@ -3842,9 +3842,8 @@ function SatSL(T)
             ]
 
         θ = T/Tc
-        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
-                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return ϕ + 1/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T)
+        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5 + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
+        return (ϕ + 1/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3873,7 +3872,7 @@ function SatSL(T::Q) where Q <: Quantity
         θ = T.val/Tc
         ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
                    + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return (ϕ + 1/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+        return (ϕ + 1/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg/K"
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3903,7 +3902,7 @@ function SatSV(T)
         θ = T/Tc
         ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
                    + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return ϕ + 1/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T)
+        return (ϕ + 1/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3932,7 +3931,7 @@ function SatSV(T::Q) where Q <: Quantity
         θ = T.val/Tc
         ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
                    + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return (ϕ + 1/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))*u"J/kg"
+        return (ϕ + 1/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg/K"
     else
         throw(DomainError(T, "Temperature not between tripple and critical points"))
     end
@@ -3942,7 +3941,7 @@ end
 """
     DeltaHvap
 
-    Returns the latent heat of vaporisation [J/kg] at T [K].
+    Returns the latent heat of vaporisation [kJ/kg] at T [K].
     If inputs have associated units, the value is returned with associated
     units of J/kg via Uniful.jl.
 """
