@@ -96,6 +96,7 @@ using Roots
 using Unitful
 using ForwardDiff
 
+
 struct UnitsError <: Exception
     var
     message::String
@@ -4008,9 +4009,17 @@ function Quality_Ts(T, s)
 end
 
 @setup_workload begin
+    include("compilefile.jl")
+
     @compile_workload begin
-        include("compilefile.jl")
+        dummy = runprecompworkload()
     end
+
+    dummy = nothing
 end
 
 end # module
+
+
+
+
