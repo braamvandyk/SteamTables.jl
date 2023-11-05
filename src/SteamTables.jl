@@ -1750,6 +1750,9 @@ end
     Initialise from ideal gas law, then use root finder to calculate P by iterating on Region3ρ.
     Pass through properties from Region3ρ
 """
+
+#TODO Remove Roots dependency here
+
 function Region3(Output::Symbol, P, T)
     # Start with a higher density to fix the problems in convergence.
     # TODO Replace this with a density from Peng-Robinson or similar EoS
@@ -4012,10 +4015,11 @@ end
     include("compilefile.jl")
 
     @compile_workload begin
-        dummy = runprecompworkload()
+        let
+            dummy = runprecompworkload()
+            dummy = nothing
+        end
     end
-
-    dummy = nothing
 end
 
 end # module
