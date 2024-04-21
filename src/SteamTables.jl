@@ -1157,7 +1157,7 @@ end
 function Region3_TPh(P, h)
     Tlow = 623.15
     Thigh = B23(:P, P)
-    if 16.529164252604478 <= P <= 22.064
+    if 16.529164252604478 <= P <= Pc
         #we are in the saturation boundary
         Tsat = Tsat(P)
         hl,hv = SatHL(Tsat),SatHV(Tsat)
@@ -1203,7 +1203,7 @@ end
 function Region3_TPs(P, s)
     Tlow = 623.15
     Thigh = B23(:P, P)
-    if 16.529164252604478 <= P <= 22.064
+    if 16.529164252604478 <= P <= Pc
         #we are in the saturation boundary
         Tsat = Tsat(P)
         sl,sv = SatSL(Tsat),SatSV(Tsat)
@@ -1216,12 +1216,11 @@ function Region3_TPs(P, s)
             slow = Region3(:SpecificS, P, Tlow)
             shigh = sl
         end
-    else #22.064 < p <= 100
+    else #Pc < p <= 100
         slow = Region3(:SpecificS, P, Tlow)
         shigh = Region3(:SpecificS, P, Thigh)
     end
     T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
-    ρ = Region3_ρPT(P, T)
     Told = T
     s_i = (slow + shigh)/2
     sold = s_i
@@ -1999,7 +1998,7 @@ function Region3(Output::Symbol, P, T)
 end
 
 function Region3_ρ0(P, T)
-    if T <= 647.96 #we are inside saturation. use the saturation volume as initial guess
+    if T <= Tc #we are inside saturation. use the saturation volume as initial guess
         if 16.529164252604478 <= P <= Psat(T) #gas phase
             #gas phase
             ρ0 = 1000*P/(R*T)
