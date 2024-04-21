@@ -1187,6 +1187,7 @@ function Region3_TPh(P, h)
         end
         Told = T
         T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
+        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
         if abs(T - Told) < 1e-12
             return T
         end
@@ -1236,6 +1237,7 @@ function Region3_TPs(P, s)
         end
         Told = T
         T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
+        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
         if abs(s_i - sold) < 1e-12
             return T
         end
@@ -2194,6 +2196,7 @@ function Region5_TPh(P, h)
         end
         Told = T
         T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
+        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
         if abs(T - Told) < 1e-12
             return T
         end
@@ -2221,6 +2224,7 @@ function Region5_TPs(P, s)
         end
         Told = T
         T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
+        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
         if abs(s_i - sold) < 1e-12
             return T
         end
