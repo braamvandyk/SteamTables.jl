@@ -23,12 +23,12 @@ P and T
 P and h
   SpecificG_Ph, SpecificF_Ph,  SpecificV_Ph,  SpecificU_Ph,   SpecificS_Ph,
   SpecificH_Ph, SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph
-  Quality_Ph
+  Quality_Ph, Temperature_Ph
 
 P and s
   SpecificG_Ps, SpecificF_Ps,  SpecificV_Ps,  SpecificU_Ps,   SpecificS_Ps,
   SpecificH_Ps, SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps
-  Quality_Ps
+  Quality_Ps, Temperature_Ps
 
 T and h
   Quality_Th
@@ -87,14 +87,12 @@ export Psat, Tsat,
        SpecificG,     SpecificF,     SpecificV,    SpecificU,    SpecificS,
        SpecificH,     SpecificCP,    SpecificCV,   SpeedOfSound,
        SpecificG_Ph,  SpecificF_Ph,  SpecificV_Ph, SpecificU_Ph, SpecificS_Ph,
-       SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph,
+       SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph, Temperature_Ph,
        SpecificG_Ps,  SpecificF_Ps,  SpecificV_Ps, SpecificU_Ps, SpecificH_Ps,
-       SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps,
+       SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps, Temperature_Ps,
        R, Tc, Pc, ρc, T3, P3, Mr
 
-using Roots
 using Unitful
-using ForwardDiff
 
 
 struct UnitsError <: Exception
@@ -111,11 +109,11 @@ Returns the boundary between regions 2 and 3.
 InputType is either :T or :P to indicate that InputValue is temperature [K] or pressure [MPa]. The complimentary value is returned.
 """
 function B23(InputType::Symbol, InputValue)
-    n = [0.348_051_856_289_69E3,
+    n = (0.348_051_856_289_69E3,
         -0.116_718_598_799_75E1,
          0.101_929_700_393_26E-2,
          0.572_544_598_627_46E3,
-         0.139_188_397_788_70E2]
+         0.139_188_397_788_70E2)
 
     if InputType == :T
         return n[1] + n[2] * InputValue + n[3] * InputValue^2
@@ -136,11 +134,11 @@ end
     Valid from saturation line at 554.485K & 6.54670MPa to 1019.32K & 100MPa
 """
 function B2bc(InputType::Symbol, InputValue)
-    n = [0.905_842_785_147_23E3,
+    n = (0.905_842_785_147_23E3,
         -0.679_557_863_992_41,
          0.128_090_027_301_36E-3,
          0.265_265_719_084_28E4,
-         0.452_575_789_059_48E1]
+         0.452_575_789_059_48E1)
 
     if InputType == :h
         return n[1] + n[2] * InputValue + n[3] * InputValue^2
@@ -1151,6 +1149,102 @@ function Region2c_TPh(P, h)
 end
 
 """
+    Region3_TPh
+
+    Returns T [K] from P[MPa] and h[kJ/kg] in Region 3.
+    Pressures in MPa and temperature in [K]
+"""
+function Region3_TPh(P, h)
+    Tlow = 623.15
+    Thigh = B23(:P, P)
+    if 16.529164252604478 <= P <= 22.064
+        #we are in the saturation boundary
+        Tsat = Tsat(P)
+        hl,hv = SatHL(Tsat),SatHV(Tsat)
+        if hl <= h <= hv
+            return Tsat
+        elseif h > hv #gas phase, interpolate with h(T_high)
+            hlow = hv
+            hhigh = Region3(:SpecificH, P, Thigh)
+        elseif h < hl #liquid phase, interpolate with h(T_low)
+            hlow = Region3(:SpecificH, P, Tlow)
+            hhigh = hl
+        end
+    else #22.064 < p <= 100
+        hlow = Region3(:SpecificH, P, Tlow)
+        hhigh = Region3(:SpecificH, P, Thigh)
+    end
+    T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
+    ρ = Region3_ρPT(P, T)
+    Told = T
+    for i in 1:100
+        h_i = Region3_ρ(:SpecificH, ρ, T)
+        if hlow < h_i
+            hlow = h_i
+            Tlow = T
+        else
+            hhigh = h_i
+            Thigh = T
+        end
+        Told = T
+        T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
+        if abs(T - Told) < 1e-12
+            return T
+        end
+        ρ = Region3_ρPT(P, T)
+    end
+    throw(error("Region3_TPh: temperature iterations failed to converge."))
+end
+
+"""
+    Region3_TPs
+
+    Returns T [K] from P[MPa] and s[kJ/kg/K] in Region 3.
+    Pressures in MPa and temperature in [K]
+"""
+function Region3_TPs(P, s)
+    Tlow = 623.15
+    Thigh = B23(:P, P)
+    if 16.529164252604478 <= P <= 22.064
+        #we are in the saturation boundary
+        Tsat = Tsat(P)
+        sl,sv = SatSL(Tsat),SatSV(Tsat)
+        if sl <= s <= sv
+            return Tsat
+        elseif s > sv #gas phase, interpolate with s(T_high)
+            slow = sv
+            shigh = Region3(:SpecificS, P, Thigh)
+        elseif s < sl #liquid phase, interpolate with s(T_low)
+            slow = Region3(:SpecificS, P, Tlow)
+            shigh = sl
+        end
+    else #22.064 < p <= 100
+        slow = Region3(:SpecificS, P, Tlow)
+        shigh = Region3(:SpecificS, P, Thigh)
+    end
+    T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
+    ρ = Region3_ρPT(P, T)
+    Told = T
+    for i in 1:100
+        s_i = Region3_ρ(:SpecificS, ρ, T)
+        if slow < s_i
+            slow = s_i
+            Tlow = T
+        else
+            shigh = s_i
+            Thigh = T
+        end
+        Told = T
+        T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
+        if abs(T - Told) < 1e-12
+            return T
+        end
+        ρ = Region3_ρPT(P, T, ρ)
+    end
+    throw(error("Region3_TPs: temperature iterations failed to converge."))
+end
+
+"""
     Region2a_TPs
 
     Returns T [K] from P[MPa] and s[kJ/kgK] in Region 2a.
@@ -1589,7 +1683,7 @@ function Region3_ρ(Output::Symbol, ρ, T)
     ρstar = ρc      #kg/m3
     Tstar = Tc      #K
 
-    n = [0.106_580_700_285_13E1,
+    n = (0.106_580_700_285_13E1,
         -0.157_328_452_902_39E2,
          0.209_443_969_743_07E2,
         -0.768_677_078_787_16E1,
@@ -1628,9 +1722,9 @@ function Region3_ρ(Output::Symbol, ρ, T)
          0.323_089_047_037_11E-2,
          0.809_648_029_962_15E-4,
         -0.165_576_797_950_37E-3,
-        -0.449_238_990_618_15E-4]
+        -0.449_238_990_618_15E-4)
 
-    I = [0,
+    I = (0,
          0,
          0,
          0,
@@ -1669,9 +1763,9 @@ function Region3_ρ(Output::Symbol, ρ, T)
          9,
          10,
          10,
-         11]
+         11)
 
-    J = [0,
+    J = (0,
          0,
          1,
          2,
@@ -1710,7 +1804,7 @@ function Region3_ρ(Output::Symbol, ρ, T)
          26,
          0,
          1,
-         26]
+         26)
 
     δ = ρ / ρstar
     τ = Tstar / T
@@ -1745,28 +1839,201 @@ function Region3_ρ(Output::Symbol, ρ, T)
     end
 end
 
+function Region3_p∂p∂ρ(ρ, T)
+    ρstar = ρc      #kg/m3
+    Tstar = Tc      #K
+
+    n = (0.106_580_700_285_13E1,
+        -0.157_328_452_902_39E2,
+         0.209_443_969_743_07E2,
+        -0.768_677_078_787_16E1,
+         0.261_859_477_879_54E1,
+        -0.280_807_811_486_20E1,
+         0.120_533_696_965_17E1,
+        -0.845_668_128_125_02E-2,
+        -0.126_543_154_777_14E1,
+        -0.115_244_078_066_81E1,
+         0.885_210_439_843_18,
+        -0.642_077_651_816_07,
+         0.384_934_601_866_71,
+        -0.852_147_088_242_06,
+         0.489_722_815_418_77E1,
+        -0.305_026_172_569_65E1,
+         0.394_205_368_791_54E-1,
+         0.125_584_084_243_08,
+        -0.279_993_296_987_10,
+         0.138_997_995_694_60E1,
+        -0.201_899_150_235_70E1,
+        -0.821_476_371_739_63E-2,
+        -0.475_960_357_349_23,
+         0.439_840_744_735_00E-1,
+        -0.444_764_354_287_39,
+         0.905_720_707_197_33,
+         0.705_224_500_879_67,
+         0.107_705_126_263_32,
+        -0.329_136_232_589_54,
+        -0.508_710_620_411_58,
+        -0.221_754_008_730_96E-1,
+         0.942_607_516_650_92E-1,
+         0.164_362_784_479_61,
+        -0.135_033_722_413_48E-1,
+        -0.148_343_453_524_72E-1,
+         0.579_229_536_280_84E-3,
+         0.323_089_047_037_11E-2,
+         0.809_648_029_962_15E-4,
+        -0.165_576_797_950_37E-3,
+        -0.449_238_990_618_15E-4)
+
+    I = (0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         1,
+         1,
+         1,
+         1,
+         2,
+         2,
+         2,
+         2,
+         2,
+         2,
+         3,
+         3,
+         3,
+         3,
+         3,
+         4,
+         4,
+         4,
+         4,
+         5,
+         5,
+         5,
+         6,
+         6,
+         6,
+         7,
+         8,
+         9,
+         9,
+         10,
+         10,
+         11)
+
+    J = (0,
+         0,
+         1,
+         2,
+         7,
+         10,
+         12,
+         23,
+         2,
+         6,
+         15,
+         17,
+         0,
+         2,
+         6,
+         7,
+         22,
+         26,
+         0,
+         2,
+         4,
+         16,
+         26,
+         0,
+         2,
+         4,
+         26,
+         1,
+         3,
+         26,
+         0,
+         2,
+         26,
+         2,
+         26,
+         2,
+         26,
+         0,
+         1,
+         26)
+
+    δ = ρ / ρstar
+    τ = Tstar / T
+    logδ = log(δ)
+    logτ = log(τ)
+    ϕ    =  n[1]*logδ+ sum([n[i]*exp(logδ*I[i]+logτ*J[i]) for i=2:40])
+    ϕ_δ  =  n[1]/δ + sum([n[i]*I[i]*exp(logδ*(I[i]-1)+logτ*J[i]) for i=2:40])
+    ϕ_δδ = -n[1]/(δ^2) + sum([n[i]*I[i]*(I[i]-1)*exp(logδ*(I[i]-2)+logτ*J[i]) for i=2:40])
+    #ϕ_δ  =  n[1]/δ + sum([n[i]*I[i]*(δ^(I[i]-1))*(τ^J[i]) for i=2:40])
+    #ϕ_δδ = -n[1]/(δ^2) + sum([n[i]*I[i]*(I[i]-1)*(δ^(I[i]-2))*(τ^J[i]) for i=2:40])
+
+    k = R*T*ρstar/1000
+    #p = ρ*R*T*δ*ϕ_δ/1000
+    p = k*δ*δ*ϕ_δ
+    ∂p∂δ = k*(2*δ*ϕ_δ + δ*δ*ϕ_δδ)
+    ∂p∂ρ = ∂p∂δ/ρstar
+    return p, ∂p∂ρ
+end
 
 """
     Initialise from ideal gas law, then use root finder to calculate P by iterating on Region3ρ.
-    Pass through properties from Region3ρ
+    Pass through properties from Region3_ρ
 """
-
-#TODO Remove Roots dependency here
-
 function Region3(Output::Symbol, P, T)
-    # Start with a higher density to fix the problems in convergence.
-    # TODO Replace this with a density from Peng-Robinson or similar EoS
     # ρ0 = 1000*P/(R*T) #Starting value from ideal gas
-    ρ0 = 500.0
-
-    f(ρ) = Region3_ρ(:Pressure, ρ, T) - P
-    ρ = Roots.find_zero(f, ρ0)
-
+    ρ = Region3_ρPT(P,T)
     if Output == :SpecificV
         return 1.0 / ρ
     else
         return Region3_ρ(Output, ρ, T)
     end
+end
+
+function Region3_ρ0(P, T)
+    if T <= 647.96 #we are inside saturation. use the saturation volume as initial guess
+        if 16.529164252604478 <= P <= Psat(T) #gas phase
+            #gas phase
+            ρ0 = 1000*P/(R*T)
+        else
+            #liquid phase
+            ρ0 = SatDensL(T)
+        end
+    else #over critical point,it does not matter we start, but a high density point is recomended
+        ρ0_liquid = 574.6703980963142 #volume at the intersection of  regions 1-3-4
+        _,∂p∂ρᵢ = Region3_p∂p∂ρ(ρ0_liquid, T)
+        if ∂p∂ρᵢ > 0
+            return ρ0_liquid
+        else
+            return 1/Region2(:SpecificV,P,B23(:P,P))
+        end
+    end
+end
+
+Region3_ρPT(P,T) = Region3_ρPT(P,T,Region3_ρ0(P,T))
+
+function Region3_ρPT(P,T,ρ0)
+    #this solver is used to solve the GERG2008 equation of state.
+    #is a modified newton raphson solver.
+    logρ = log(ρ0)
+    for i in 1:100
+        ρᵢ = exp(logρ)
+        Pᵢ,∂p∂ρᵢ = Region3_p∂p∂ρ(ρᵢ, T)
+        ΔP = (P - Pᵢ)
+        Δ = ΔP/(ρᵢ*∂p∂ρᵢ)    
+        logρ = logρ + Δ
+        abs(ΔP) < 3eps(Pᵢ) && return exp(logρ)
+        abs(Δ) < 1e-12 && return exp(logρ)
+    end
+    return zero(ρ0)/zero(ρ0)
 end
 
 
@@ -1780,7 +2047,7 @@ end
     or pressure [MPa]. The complimentary value is returned.
 """
 function Region4(InputType::Symbol, InputValue)
-    n = [0.116_705_214_527_67E4,
+    n = (0.116_705_214_527_67E4,
         -0.724_213_167_032_06E6,
         -0.170_738_469_400_92E2,
          0.120_208_247_024_70E5,
@@ -1789,7 +2056,7 @@ function Region4(InputType::Symbol, InputValue)
         -0.482_326_573_615_91E4,
          0.405_113_405_420_57E6,
         -0.238_555_575_678_49,
-         0.650_175_348_447_98E3]
+         0.650_175_348_447_98E3)
 
     if InputType == :T
         Θ = InputValue + n[9]/(InputValue - n[10])
@@ -1812,7 +2079,6 @@ function Region4(InputType::Symbol, InputValue)
         throw(DomainError(InputType, "Unknown input. Expecting :T or :P"))
     end
 end
-
 
 """
     Region5
@@ -1911,6 +2177,54 @@ function Region5(Output::Symbol, P, T)
     end
 end
 
+function Region5_TPh(P, h)
+    hhighT = Region5(:SpecificH, P, 1073.15)
+    hlowT = Region5(:SpecificH, P, 2273.15)
+    hhigh,hlow = minmax(hhighT,hlowT)
+    T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
+    Told = T
+    for i in 1:100
+        h_i = Region5(:SpecificH, P, T)
+        if hlow < h_i
+            hlow = h_i
+            Tlow = T
+        else
+            hhigh = h_i
+            Thigh = T
+        end
+        Told = T
+        T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
+        if abs(T - Told) < 1e-12
+            return T
+        end
+    end
+    throw(error("Region5_TPh: temperature iterations failed to converge."))
+end
+
+function Region5_TPs(P, s)
+    shighT = Region5(:SpecificH, P, 1073.15)
+    slowT = Region5(:SpecificH, P, 2273.15)
+    shigh,slow = minmax(shighT,slowT)
+    T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
+    Told = T
+    for i in 1:100
+        s_i = Region5(:SpecificS, P, T)
+        if slow < s_i
+            slow = s_i
+            Tlow = T
+        else
+            shigh = s_i
+            Thigh = T
+        end
+        Told = T
+        T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
+        if abs(T - Told) < 1e-12
+            return T
+        end
+    end
+    throw(error("Region5_TPs: temperature iterations failed to converge."))
+end
+
 
 """
     RegionID
@@ -1996,6 +2310,9 @@ function RegionID_Ph(P, h)::Symbol
             2a: P ≤ 4Mpa
             2b: s ≥ 5.85 kJ/kgK (or use function B2bc if P,h specificed)
             2c: s ≥ 5.85 kJ/kgK (or use function B2bc if P,h specificed)
+        
+            Region 3:
+        Psat(623.15) ≤ P ≤ 100MPa
     =#
 
     # Check overall region first
@@ -2030,6 +2347,8 @@ function RegionID_Ph(P, h)::Symbol
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2c #, Region2(:SpecificH, P, T) # Return forward h for consistency check
+            elseif h <= Region3_ρ(:SpecificH, P, B23(:P, P))
+                return :Region3
             else
                 throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
             end
@@ -2145,19 +2464,48 @@ end
 """
 function Psat2(T)
 
-    a = [ -7.85951783000,
+    a = ( -7.85951783000,
            1.84408259000,
           -11.78664970000,
           22.68074110000,
          -15.96187190000,
            1.80122502000
-        ]
+        )
 
     θ = T/Tc
     τ = 1 - θ
 
     return Pc*exp(Tc/T*(a[1]*τ + a[2]*τ^1.5 + a[3]*τ^3 + a[4]*τ^3.5
                       + a[5]*τ^4 + a[6]*τ^7.5))
+end
+
+function ∂Psat∂T(T)
+    a = ( -7.85951783000,
+           1.84408259000,
+          -11.78664970000,
+          22.68074110000,
+         -15.96187190000,
+           1.80122502000
+        )
+    θ = T/Tc 
+    τ = 1 - θ
+    ∂τ = - 1/Tc
+    ∂T = one(T)
+    τhalf = sqrt(τ)
+    τ15 = τ*τhalf
+    τ2 = τ*τ
+    τ25 = τ2*τhalf
+    τ3 = τ2*τ
+    τ35=τ3*τhalf
+    τ4=τ2*τ2
+    τ65 = τ35*τ3
+    τ75 = τ35*τ4
+
+    x = Tc*(a[1]*τ + a[2]*τ15 + a[3]*τ3 + a[4]*τ35 + a[5]*τ4 + a[6]*τ75)
+    ∂x = Tc*∂τ*(a[1] + 1.5*a[2]*τhalf + 3.0*a[3]*τ2 + 3.5*a[4]*τ25 + 4.0*a[5]*τ3 + 7.5*a[6]*τ65)
+    xT = x/T
+    #res =  Pc*exp(xT)
+    ∂res = Pc*exp(xT)*(∂x - xT*∂T)/T
 end
 
 
@@ -2180,7 +2528,7 @@ function Psat(T)
     if T3 ≤ T ≤ Tc
         return Region4(:T, T)
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points."))
+        throw(DomainError(T, "Temperature not between triple and critical points."))
     end
 end
 
@@ -2195,7 +2543,7 @@ function Psat(T::Q) where Q <: Quantity
     if T3 ≤ T.val ≤ Tc
         return Region4(:T, T.val)*u"MPa"
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points."))
+        throw(DomainError(T, "Temperature not between triple and critical points."))
     end
 end
 
@@ -2211,7 +2559,7 @@ function Tsat(P)
     if 0.611_213E-3 ≤ P ≤ Pc # Note that botton limit not exactly P3
         return Region4(:P, P)
     else
-        throw(DomainError(P, "Pressure not between tripple and critical points"))
+        throw(DomainError(P, "Pressure not between triple and critical points"))
     end
 end
 
@@ -2226,10 +2574,23 @@ function Tsat(P::Q) where Q <: Quantity
     if 0.611_213E-3 ≤ P.val ≤ Pc
         return Region4(:P, P.val)*u"K"
     else
-        throw(DomainError(P, "Pressure not between tripple and critical points"))
+        throw(DomainError(P, "Pressure not between triple and critical points"))
     end
 end
 
+function property_PT(property::Symbol,Region::Symbol,P,T)
+    if Region == :Region1
+        return Region1(property, P, T)
+    elseif Region == :Region2a || Region == :Region2b || Region == :Region2c || Region == :Region2
+        return Region2(property, P, T)
+    elseif Region == :Region3
+        return Region3(property, P, T)
+    elseif Region == :Region5
+        return Region5(property, P, T)
+    else
+        throw(DomainError(Region, "Invalid Region"))
+    end
+end
 
 """
     SpecificG
@@ -2241,16 +2602,7 @@ end
 """
 function SpecificG(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificG, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificG, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificG, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificG, P, T)
-    end
+    return property_PT(:SpecificG,Region,P,T)
 end
 
 
@@ -2259,20 +2611,74 @@ function SpecificG(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
         P = 1.0*uconvert(u"MPa", P)
         T = 1.0*uconvert(u"K", T)
         Region = RegionID(P.val, T.val)
-
-        if Region == :Region1
-            return Region1(:SpecificG, P.val, T.val)*u"kJ/kg"
-        elseif Region == :Region2
-            return Region2(:SpecificG, P.val, T.val)*u"kJ/kg"
-        elseif Region == :Region3
-            return Region3(:SpecificG, P.val, T.val)*u"kJ/kg"
-        elseif Region == :Region5
-            return Region5(:SpecificG, P.val, T.val)*u"kJ/kg"
-        end
+        return property_PT(:SpecificG,Region,P.val,T.val)*u"kJ/kg"
     catch
         throw(UnitsError((P,T), "Invalid input units."))
     end
+end
 
+"""
+    Temperature_Ph(P, h)
+
+    Utility function that returns the Temperature [K] from P [MPa] and h [kJ/kg]
+    The explicit backwards equations are only available in regions 1 and 2. For Region 3 and 5 there is an implicit solver that may fail. Input outside these
+    will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of K via Uniful.jl.
+"""
+function Temperature_Ph(P, h)
+    Region = RegionID_Ph(P, h)
+    return _Temperature_Ph(Region, P, h)
+end
+
+function _Temperature_Ph(Region::Symbol, P, h)
+    if Region == :Region1
+        return Region1_TPh(P, h)
+    elseif Region == :Region2a
+        return Region2a_TPh(P, h)
+    elseif Region == :Region2b
+        return Region2b_TPh(P, h)
+    elseif Region == :Region2c
+        return Region2c_TPh(P, h)
+    elseif Region == :Region3
+        return Region3_TPh(P, h)
+    elseif Region == :Region5
+        return Region5_TPh(P, h)
+    else
+        throw(DomainError(Region, "Invalid Region"))
+    end
+end
+
+"""
+    Temperature_Ph(P, h)
+
+    Utility function that returns the Temperature [K] from P [MPa] and s [kJ/kg/K]
+    The explicit backwards equations are only available in regions 1 and 2. For Region 3 and 5 there is an implicit solver that may fail. Input outside these
+    will result in a DomainError exception.
+    If inputs have associated units, the value is returned with associated
+    units of K via Uniful.jl.
+"""
+function Temperature_Ps(P, s)
+    Region = RegionID_Ps(P, s)
+    return _Temperature_Ps(Region, P, s)
+end
+
+function _Temperature_Ps(Region::Symbol, P, s)
+    if Region == :Region1
+        return Region1_TPs(P, s)
+    elseif Region == :Region2a
+        return Region2a_TPs(P, s)
+    elseif Region == :Region2b
+        return Region2b_TPs(P, s)
+    elseif Region == :Region2c
+        return Region2c_TPs(P, s)
+    elseif Region == :Region3
+        return Region3_TPs(P, s)
+    elseif Region == :Region5
+        return Region5_TPs(P, s)
+    else
+        throw(DomainError(Region, "Invalid Region"))
+    end
 end
 
 
@@ -2287,20 +2693,8 @@ end
 """
 function SpecificG_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificG, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificG, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificG, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificG, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpecificG,Region,P,T)
 end
 
 
@@ -2317,20 +2711,8 @@ function SpecificG_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpecificG, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpecificG,Region,P.val,T)*u"kJ/kg"
 end
 
 
@@ -2454,22 +2836,9 @@ end
 """
 function SpecificF_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificF, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificF, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificF, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificF, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpecificF, Region, P, T)
 end
-
 
 function SpecificF_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     try
@@ -2484,20 +2853,8 @@ function SpecificF_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpecificF, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpecificF, Region, P.val, T)*u"kJ/kg"
 end
 
 
@@ -2513,20 +2870,8 @@ end
 """
 function SpecificF_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificF, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificF, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificF, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificF, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpecificF, Region, P, T)
 end
 
 
@@ -2543,20 +2888,8 @@ function SpecificF_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpecificF, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpecificF, P.val, T)*u"kJ/kg"
-    end
+    T = _Temperature_Ps(Region, P.val, s.val)
+    return property_PT(:SpecificF, Region, P.val, T)*u"kJ/kg"
 end
 
 
@@ -2569,16 +2902,7 @@ end
 """
 function SpecificV(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificV, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificV, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificV, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificV, P, T)
-    end
+    return property_PT(:SpecificV, Region, P, T)
 end
 
 
@@ -2595,16 +2919,7 @@ function SpecificV(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificV, P.val, T.val)*u"m^3/kg"
-    elseif Region == :Region2
-        return Region2(:SpecificV, P.val, T.val)*u"m^3/kg"
-    elseif Region == :Region3
-        return Region3(:SpecificV, P.val, T.val)*u"m^3/kg"
-    elseif Region == :Region5
-        return Region5(:SpecificV, P.val, T.val)*u"m^3/kg"
-    end
+    return property_PT(:SpecificV, Region, P.val, T.val)*u"m^3/kg"
 end
 
 
@@ -2619,20 +2934,8 @@ end
 """
 function SpecificV_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificV, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificV, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificV, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificV, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpecificV, Region, P, T)
 end
 
 
@@ -2649,20 +2952,8 @@ function SpecificV_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpecificV, P.val, T)*u"m^3/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpecificV, Region, P.val, T)*u"m^3/kg"
 end
 
 
@@ -2678,20 +2969,8 @@ end
 """
 function SpecificV_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificV, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificV, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificV, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificV, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpecificV, Region, P, T)
 end
 
 
@@ -2708,20 +2987,8 @@ function SpecificV_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpecificV, P.val, T)*u"m^3/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpecificV, P.val, T)*u"m^3/kg"
-    end
+    T = _Temperature_Ps(Region, P.val, s.val)
+    return property_PT(:SpecificV, Region, P.val, T)*u"m^3/kg"
 end
 
 
@@ -2735,16 +3002,7 @@ end
 """
 function SpecificU(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificU, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificU, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificU, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificU, P, T)
-    end
+    return property_PT(:SpecificU, Region, P, T)
 end
 
 
@@ -2761,16 +3019,7 @@ function SpecificU(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificU, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region2
-        return Region2(:SpecificU, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region3
-        return Region3(:SpecificU, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region5
-        return Region5(:SpecificU, P.val, T.val)*u"kJ/kg"
-    end
+    return property_PT(:SpecificU, Region, P.val, T.val)*u"kJ/kg"
 end
 
 
@@ -2786,20 +3035,8 @@ end
 """
 function SpecificU_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificU, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificU, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificU, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificU, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpecificU, Region, P, T)
 end
 
 
@@ -2816,20 +3053,8 @@ function SpecificU_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpecificU, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpecificU, Region, P.val, T)*u"kJ/kg"
 end
 
 
@@ -2845,20 +3070,8 @@ end
 """
 function SpecificU_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificU, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificU, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificU, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificU, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpecificU, Region, P, T)
 end
 
 
@@ -2875,20 +3088,8 @@ function SpecificU_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpecificU, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpecificU, P.val, T)*u"kJ/kg"
-    end
+    T = _Temperature_Ps(Region, P.val, s.val)
+    return property_PT(:SpecificU, Region, P.val, T)*u"kJ/kg"
 end
 
 
@@ -2902,16 +3103,7 @@ end
 """
 function SpecificS(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificS, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificS, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificS, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificS, P, T)
-    end
+    return property_PT(:SpecificS, Region, P, T)
 end
 
 
@@ -2928,16 +3120,7 @@ function SpecificS(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificS, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region2
-        return Region2(:SpecificS, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region3
-        return Region3(:SpecificS, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region5
-        return Region5(:SpecificS, P.val, T.val)*u"kJ/kg/K"
-    end
+    return property_PT(:SpecificS, Region, P.val, T.val)*u"kJ/kg/K"
 end
 
 
@@ -2953,20 +3136,8 @@ end
 """
 function SpecificS_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificS, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificS, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificS, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificS, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpecificS, Region, P, T)
 end
 
 
@@ -2983,20 +3154,8 @@ function SpecificS_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpecificS, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpecificS, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpecificS, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpecificS, P.val, T)*u"kJ/kg/K"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpecificS, Region, P.val, T)*u"kJ/kg/K"
 end
 
 
@@ -3015,16 +3174,7 @@ end
 """
 function SpecificH(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificH, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificH, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificH, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificH, P, T)
-    end
+    return property_PT(:SpecificH, Region, P, T)
 end
 
 
@@ -3041,16 +3191,7 @@ function SpecificH(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificH, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region2
-        return Region2(:SpecificH, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region3
-        return Region3(:SpecificH, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region5
-        return Region5(:SpecificH, P.val, T.val)*u"kJ/kg"
-    end
+    return property_PT(:SpecificH, Region, P.val, T.val)*u"kJ/kg"
 end
 
 
@@ -3071,20 +3212,8 @@ end
 """
 function SpecificH_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificH, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificH, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificH, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificH, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpecificH, Region, P, T)
 end
 
 
@@ -3101,20 +3230,8 @@ function SpecificH_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpecificH, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpecificH, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpecificH, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpecificH, P.val, T)*u"kJ/kg"
-    end
+    T = _Temperature_Ps(Region, P.val, s.val)
+    return property_PT(:SpecificH, Region, P.val, T)*u"kJ/kg"
 end
 
 
@@ -3128,16 +3245,7 @@ end
 """
 function SpecificCP(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificCP, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificCP, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificCP, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificCP, P, T)
-    end
+    return property_PT(:SpecificCP, Region, P, T)
 end
 
 
@@ -3154,16 +3262,7 @@ function SpecificCP(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region2
-        return Region2(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region3
-        return Region3(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region5
-        return Region5(:SpecificCP, P.val, T.val)*u"kJ/kg/K"
-    end
+    return property_PT(:SpecificCP, Region, P.val, T.val)*u"kJ/kg/K"
 end
 
 
@@ -3179,20 +3278,8 @@ end
 """
 function SpecificCP_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificCP, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificCP, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificCP, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificCP, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpecificCP, Region, P, T)
 end
 
 
@@ -3209,20 +3296,8 @@ function SpecificCP_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpecificCP, Region, P.val, T)*u"kJ/kg/K"
 end
 
 
@@ -3238,20 +3313,8 @@ end
 """
 function SpecificCP_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificCP, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificCP, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificCP, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificCP, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpecificCP, Region, P, T)
 end
 
 
@@ -3268,20 +3331,8 @@ function SpecificCP_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpecificCP, P.val, T)*u"kJ/kg/K"
-    end
+    T = _Temperature_Ps(Region, P.val, s.val)
+    return property_PT(:SpecificCP, Region, P.val, T)*u"kJ/kg/K"
 end
 
 
@@ -3295,16 +3346,7 @@ end
 """
 function SpecificCV(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificCV, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificCV, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificCV, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificCV, P, T)
-    end
+    return property_PT(:SpecificCV, Region, P, T)
 end
 
 
@@ -3321,16 +3363,7 @@ function SpecificCV(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region2
-        return Region2(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region3
-        return Region3(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
-    elseif Region == :Region5
-        return Region5(:SpecificCV, P.val, T.val)*u"kJ/kg/K"
-    end
+    return property_PT(:SpecificCV, Region, P.val, T.val)*u"kJ/kg/K"
 end
 
 
@@ -3346,20 +3379,8 @@ end
 """
 function SpecificCV_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpecificCV, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpecificCV, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpecificCV, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpecificCV, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpecificCV, Region, P, T)
 end
 
 
@@ -3376,20 +3397,8 @@ function SpecificCV_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpecificCV, Region, P.val, T)*u"kJ/kg/K"
 end
 
 
@@ -3405,20 +3414,8 @@ end
 """
 function SpecificCV_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificCV, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificCV, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificCV, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificCV, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpecificCV, Region, P, T)
 end
 
 
@@ -3435,20 +3432,8 @@ function SpecificCV_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpecificCV, P.val, T)*u"kJ/kg/K"
-    end
+    T = _Temperature_Ps(Region, P.val, s.val)
+    return property_PT(:SpecificCV, Region, P.val, T)*u"kJ/kg/K"
 end
 
 
@@ -3461,16 +3446,7 @@ end
 """
 function SpeedOfSound(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpeedOfSound, P, T)
-    elseif Region == :Region2
-        return Region2(:SpeedOfSound, P, T)
-    elseif Region == :Region3
-        return Region3(:SpeedOfSound, P, T)
-    elseif Region == :Region5
-        return Region5(:SpeedOfSound, P, T)
-    end
+    return property_PT(:SpeedOfSound, Region, P, T)
 end
 
 
@@ -3487,16 +3463,7 @@ function SpeedOfSound(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpeedOfSound, P.val, T.val)*u"m/s"
-    elseif Region == :Region2
-        return Region2(:SpeedOfSound, P.val, T.val)*u"m/s"
-    elseif Region == :Region3
-        return Region3(:SpeedOfSound, P.val, T.val)*u"m/s"
-    elseif Region == :Region5
-        return Region5(:SpeedOfSound, P.val, T.val)*u"m/s"
-    end
+    return property_PT(:SpeedOfSound, Region, P.val, T.val)*u"m/s"
 end
 
 
@@ -3508,20 +3475,8 @@ end
     units of m/s via Uniful.jl."""
 function SpeedOfSound_Ph(P, h)
     Region = RegionID_Ph(P, h)
-
-    if Region == :Region1
-        T = Region1_TPh(P, h)
-        return Region1(:SpeedOfSound, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPh(P, h)
-        return Region2(:SpeedOfSound, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPh(P, h)
-        return Region2(:SpeedOfSound, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPh(P, h)
-        return Region2(:SpeedOfSound, P, T)
-    end
+    T = _Temperature_Ph(Region, P, h)
+    return property_PT(:SpeedOfSound, Region, P, T)
 end
 
 
@@ -3538,20 +3493,8 @@ function SpeedOfSound_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ph(P.val, h.val)
-
-    if Region == :Region1
-        T = Region1_TPh(P.val, h.val)
-        return Region1(:SpeedOfSound, P.val, T)*u"m/s"
-    elseif Region == :Region2a
-        T = Region2a_TPh(P.val, h.val)
-        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
-    elseif Region == :Region2b
-        T = Region2b_TPh(P.val, h.val)
-        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
-    elseif Region == :Region2c
-        T = Region2c_TPh(P.val, h.val)
-        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
-    end
+    T = _Temperature_Ph(Region, P.val, h.val)
+    return property_PT(:SpeedOfSound, Region, P.val, T)*u"m/s"
 end
 
 
@@ -3564,20 +3507,8 @@ end
 """
 function SpeedOfSound_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpeedOfSound, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpeedOfSound, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpeedOfSound, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpeedOfSound, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpeedOfSound, Region, P, T)
 end
 
 
@@ -3594,20 +3525,8 @@ function SpeedOfSound_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
     end
 
     Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpeedOfSound, P.val, T)*u"m/s"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpeedOfSound, P.val, T)*u"m/s"
-    end
+    T = _Temperature_Ps(Region, P.val, s.val)
+    return property_PT(:SpeedOfSound, Region, P.val, T)*u"m/s"
 end
 
 
@@ -3633,7 +3552,7 @@ function SatDensL(T)
         return ρc*(1 + b[1]*τ^(1/3) + b[2]*τ^(2/3) + b[3]*τ^(5/3) + b[4]*τ^(16/3)
                + b[5]*τ^(43/3) + b[6]*τ^(110/3))
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end #SatDensL
 
@@ -3659,7 +3578,7 @@ function SatDensL(T::Q) where Q <: Quantity
         return ρc*(1 + b[1]*τ^(1/3) + b[2]*τ^(2/3) + b[3]*τ^(5/3) + b[4]*τ^(16/3)
                + b[5]*τ^(43/3) + b[6]*τ^(110/3))*u"kg/m^3"
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end #SatDensL
 
@@ -3687,7 +3606,7 @@ function SatDensV(T)
         return ρc*exp(c[1]*τ^(2/6) + c[2]*τ^(4/6) + c[3]*τ^(8/6) + c[4]*τ^(18/6)
              + c[5]*τ^(37/6) + c[6]*τ^(71/6))
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end #SatDensV
 
@@ -3714,7 +3633,7 @@ function SatDensV(T::Q) where Q <: Quantity
         return ρc*exp(c[1]*τ^(2/6) + c[2]*τ^(4/6) + c[3]*τ^(8/6) + c[4]*τ^(18/6)
              + c[5]*τ^(37/6) + c[6]*τ^(71/6))*u"kg/m^3"
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end #SatDensV
 
@@ -3739,9 +3658,9 @@ function SatHL(T)
 
         θ = T/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
+        return (α + T/SatDensL(T)*1e6*∂Psat∂T(T))/1000.0
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end
 
@@ -3765,9 +3684,9 @@ function SatHL(T::Q) where Q <: Quantity
 
         θ = T.val/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T.val/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg"
+        return (α + T.val/SatDensL(T.val)*1e6*∂Psat∂T(T.val))/1000.0*u"kJ/kg"
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end
 
@@ -3792,9 +3711,9 @@ function SatHV(T)
 
         θ = T/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
+        return (α + T/SatDensV(T)*1e6*∂Psat∂T(T))/1000.0
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end
 
@@ -3818,10 +3737,26 @@ function SatHV(T::Q) where Q <: Quantity
 
         θ = T.val/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T.val/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg"
+        return (α + T.val/SatDensV(T.val)*1e6*∂Psat∂T(T.val))/1000.0*u"kJ/kg"
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
+end
+
+function ϕS(T)
+    α0 = 1000
+    ϕ0 = α0/Tc
+
+    dϕ = 2319.5246
+    d = (   -5.651_349_98E-8,
+            2690.666_31,
+            127.287_297,
+            -135.003_439,
+                0.981_825_814
+        )
+
+    θ = T/Tc
+    ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5+ 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
 end
 
 
@@ -3834,22 +3769,10 @@ end
 """
 function SatSL(T)
     if T3 ≤ T ≤ Tc
-        α0 = 1000
-        ϕ0 = α0/Tc
-
-        dϕ =  2319.5246
-        d = [   -5.651_349_98E-8,
-              2690.666_31,
-               127.287_297,
-              -135.003_439,
-                 0.981_825_814
-            ]
-
-        θ = T/Tc
-        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5 + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return (ϕ + 1/SatDensL(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
+        ϕ = ϕS(T)
+        return (ϕ + 1/SatDensL(T)*1e6*∂Psat∂T(T))/1000.0
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end
 
@@ -3860,28 +3783,9 @@ function SatSL(T::Q) where Q <: Quantity
     catch
         throw(UnitsError(T, "Invalid input units."))
     end
-
-    if T3 ≤ T.val ≤ Tc
-        α0 = 1000
-        ϕ0 = α0/Tc
-
-        dϕ = 2319.5246
-        d = [   -5.651_349_98E-8,
-              2690.666_31,
-               127.287_297,
-              -135.003_439,
-                 0.981_825_814
-            ]
-
-        θ = T.val/Tc
-        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
-                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return (ϕ + 1/SatDensL(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg/K"
-    else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
-    end
+    T3 ≤ T.val ≤ Tc || throw(DomainError(T, "Temperature not between triple and critical points"))
+    return SatSL(T.val)*u"kJ/kg/K"
 end
-
 
 """
     SatSV
@@ -3892,23 +3796,10 @@ end
 """
 function SatSV(T)
     if T3 ≤ T ≤ Tc
-        α0 = 1000
-        ϕ0 = α0/Tc
-
-        dϕ = 2319.5246
-        d = [   -5.651_349_98E-8,
-              2690.666_31,
-               127.287_297,
-              -135.003_439,
-                 0.981_825_814
-            ]
-
-        θ = T/Tc
-        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
-                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return (ϕ + 1/SatDensV(T)*1e6*ForwardDiff.derivative(Psat2, T))/1000.0
+        ϕ = ϕS(T)
+        return (ϕ + 1/SatDensV(T)*1e6*∂Psat∂T(T))/1000.0
     else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
+        throw(DomainError(T, "Temperature not between triple and critical points"))
     end
 end
 
@@ -3919,26 +3810,8 @@ function SatSV(T::Q) where Q <: Quantity
     catch
         throw(UnitsError(T, "Invalid input units."))
     end
-
-    if T3 ≤ T.val ≤ Tc
-        α0 = 1000
-        ϕ0 = α0/Tc
-
-        dϕ = 2319.5246
-        d = [   -5.651_349_98E-8,
-              2690.666_31,
-               127.287_297,
-              -135.003_439,
-                 0.981_825_814
-            ]
-
-        θ = T.val/Tc
-        ϕ = ϕ0*(dϕ + 19/20*d[1]*θ^(-20) + d[2]*log(θ) + 9/7*d[3]*θ^3.5
-                   + 5/4*d[4]*θ^4 + 109/107*d[5]*θ^53.5)
-        return (ϕ + 1/SatDensV(T.val)*1e6*ForwardDiff.derivative(Psat2, T.val))/1000.0*u"kJ/kg/K"
-    else
-        throw(DomainError(T, "Temperature not between tripple and critical points"))
-    end
+    T3 ≤ T.val ≤ Tc || throw(DomainError(T, "Temperature not between triple and critical points"))
+    return SatSV(T.val)*u"kJ/kg/K"
 end
 
 
