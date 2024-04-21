@@ -1175,10 +1175,9 @@ function Region3_TPh(P, h)
         hhigh = Region3(:SpecificH, P, Thigh)
     end
     T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
-    ρ = Region3_ρPT(P, T)
     Told = T
     for i in 1:100
-        h_i = Region3_ρ(:SpecificH, ρ, T)
+        h_i = Region3(:SpecificH, P, T)
         if hlow < h_i
             hlow = h_i
             Tlow = T
@@ -1191,7 +1190,6 @@ function Region3_TPh(P, h)
         if abs(T - Told) < 1e-12
             return T
         end
-        ρ = Region3_ρPT(P, T)
     end
     throw(error("Region3_TPh: temperature iterations failed to converge."))
 end
@@ -1226,7 +1224,7 @@ function Region3_TPs(P, s)
     ρ = Region3_ρPT(P, T)
     Told = T
     for i in 1:100
-        s_i = Region3_ρ(:SpecificS, ρ, T)
+        s_i = Region3(:SpecificS, P, T)
         if slow < s_i
             slow = s_i
             Tlow = T
@@ -1239,7 +1237,6 @@ function Region3_TPs(P, s)
         if abs(T - Told) < 1e-12
             return T
         end
-        ρ = Region3_ρPT(P, T, ρ)
     end
     throw(error("Region3_TPs: temperature iterations failed to converge."))
 end
@@ -2178,8 +2175,9 @@ function Region5(Output::Symbol, P, T)
 end
 
 function Region5_TPh(P, h)
-    hhighT = Region5(:SpecificH, P, 1073.15)
-    hlowT = Region5(:SpecificH, P, 2273.15)
+    Thigh,Tlow = (1073.15,2273.15)
+    hhighT = Region5(:SpecificH, P, Tlow)
+    hlowT = Region5(:SpecificH, P, Thigh)
     hhigh,hlow = minmax(hhighT,hlowT)
     T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
     Told = T
@@ -2202,9 +2200,9 @@ function Region5_TPh(P, h)
 end
 
 function Region5_TPs(P, s)
-    shighT = Region5(:SpecificH, P, 1073.15)
-    slowT = Region5(:SpecificH, P, 2273.15)
-    shigh,slow = minmax(shighT,slowT)
+    Thigh,Tlow = (1073.15,2273.15)
+    shigh = Region5(:SpecificS, P, Thigh)
+    slow = Region5(:SpecificS, P, Tlow)
     T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
     Told = T
     for i in 1:100
@@ -2347,7 +2345,7 @@ function RegionID_Ph(P, h)::Symbol
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2c #, Region2(:SpecificH, P, T) # Return forward h for consistency check
-            elseif h <= Region3_ρ(:SpecificH, P, B23(:P, P))
+            elseif h <= Region3(:SpecificH, P, B23(:P, P))
                 return :Region3
             else
                 throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
@@ -2361,6 +2359,8 @@ function RegionID_Ph(P, h)::Symbol
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2b #, Region2(:SpecificH, P, T) # Return forward h for consistency check
+            elseif P < 50 && Region5(:SpecificH, P, 1073.15) <= h <= Region5(:SpecificH, P, 2273.15)
+                return :Region5
             else
                 throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
             end
@@ -2429,6 +2429,8 @@ function RegionID_Ps(P, s)::Symbol
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2c #, Region2(:SpecificS, P, T) # Return forward s for consistency check
+            elseif s <= Region3(:SpecificS, P, B23(:P, P))
+                return :Region3
             else
                 throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
             end
@@ -2441,6 +2443,8 @@ function RegionID_Ps(P, s)::Symbol
                 end
             elseif B23(:P, P) ≤ T ≤ 1073.15
                 return :Region2b #, Region2(:SpecificS, P, T) # Return forward s for consistency check
+            elseif P < 50 && Region5(:SpecificS, P, 1073.15) <= s <= Region5(:SpecificS, P, 2273.15)
+                return :Region5
             else
                 throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
 

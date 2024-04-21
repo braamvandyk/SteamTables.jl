@@ -51,3 +51,11 @@
 
 @test SpeedOfSound(0.783_095_639E2, 750.0) ≈ 0.760_696_041E3
 @test SpeedOfSound(0.783_095_639E2u"MPa", 750.0u"K") ≈ 0.760_696_041E3u"m/s"
+
+#issue #23
+let P = 30,T = 650
+    H = SpecificH(P,T)
+    S = SpecificS(P,T)
+    @test S ≈ SpecificS_Ph(P,H)
+    @test H ≈ SpecificH_Ps(P,S)
+end
