@@ -2330,7 +2330,7 @@ function RegionID_Ph(P, h)::Symbol
     T = Region1_TPh(P, h)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
-        if P ≥ Psat(T) && h <= SatHL(T) #Region1 is only the liquid phase
+        if P ≥ Psat(T) && h <= SatHL(Region4(:P,P)) #Region1 is only the liquid phase
             return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
         end
     end
@@ -2415,7 +2415,7 @@ function RegionID_Ps(P, s)::Symbol
     T = Region1_TPs(P, s)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
-        if P ≥ Psat(T) && s < SatSL(T) #Region 1 is only the liquid phase
+        if P ≥ Psat(T) && s < SatSL(Region4(:P,P)) #Region 1 is only the liquid phase
             return :Region1 #, Region1(:SpecificS, P, T) # Return forward s for consistency check
         end
     end
