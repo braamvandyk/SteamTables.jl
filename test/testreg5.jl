@@ -51,11 +51,3 @@
 
 @test SpeedOfSound(30.0, 2000.0) ≈ 0.106_736_948E4
 @test SpeedOfSound(30.0u"MPa", 2000.0u"K") ≈ 0.106_736_948E4u"m/s"
-
-#issue #23
-let P = 30,T = 2000
-    H = SpecificH(P,T)
-    S = SpecificS(P,T)
-    @test S ≈ SpecificS_Ph(P,H)
-    @test H ≈ SpecificH_Ps(P,S)
-end

@@ -1223,7 +1223,10 @@ function Region3_TPs(P, s)
     T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
     ρ = Region3_ρPT(P, T)
     Told = T
+    s_i = (slow + shigh)/2
+    sold = s_i
     for i in 1:100
+        sold = s_i
         s_i = Region3(:SpecificS, P, T)
         if slow < s_i
             slow = s_i
@@ -1234,7 +1237,7 @@ function Region3_TPs(P, s)
         end
         Told = T
         T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
-        if abs(T - Told) < 1e-12
+        if abs(s_i - sold) < 1e-12
             return T
         end
     end
@@ -2205,7 +2208,10 @@ function Region5_TPs(P, s)
     slow = Region5(:SpecificS, P, Tlow)
     T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
     Told = T
+    s_i = (shigh + slow)/2
+    sold = s_i
     for i in 1:100
+        sold = s_i
         s_i = Region5(:SpecificS, P, T)
         if slow < s_i
             slow = s_i
@@ -2216,7 +2222,7 @@ function Region5_TPs(P, s)
         end
         Told = T
         T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
-        if abs(T - Told) < 1e-12
+        if abs(s_i - sold) < 1e-12
             return T
         end
     end
