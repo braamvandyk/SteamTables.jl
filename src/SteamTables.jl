@@ -131,7 +131,8 @@ function itp_find_zero(f::F,xa,xb;tol = 0.5e-12,max_iters = 100) where F
     κ₁,κ₂ = 0.2,2.0
     n0 = 1
     ya,yb = f(xa),f(xb)
-    nmid = log2((xb-xa)/(2*tol))
+    @assert ya < yb
+    nmid = ceil(log2(abs(xb-xa)/(2*tol)))
     nmax = nmid + n0
     for i in 0:max_iters
         xa,xb,ya,yb = itp_step(f::F,xa,xb,ya,yb,tol,κ₁,κ₂,i,nmid,nmax)
@@ -2175,7 +2176,7 @@ function Region5(Output::Symbol, P, T)
 end
 
 function Region5_TPh(P, h)
-    Thigh,Tlow = 1073.15,2273.15
+    Tlow,Thigh = 1073.15,2273.15
     f(T) = Region5(:SpecificH, P, T) - h
     T = itp_find_zero(f, Tlow, Thigh)
     isnan(T) && throw(error("Region5_TPh: temperature iterations failed to converge."))
@@ -2183,7 +2184,7 @@ function Region5_TPh(P, h)
 end
 
 function Region5_TPs(P, s)
-    Thigh,Tlow = 1073.15,2273.15
+    Tlow,Thigh = 1073.15,2273.15
     f(T) = Region5(:SpecificS, P, T) - s
     T = itp_find_zero(f, Tlow, Thigh)
     isnan(T) && throw(error("Region5_TPs: temperature iterations failed to converge."))
