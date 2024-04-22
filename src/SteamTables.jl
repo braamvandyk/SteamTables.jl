@@ -78,7 +78,7 @@ const ρc = 322.         #kg/m3      Critical density of water
 const T3 = 273.16       #K          Triple point temperature of water
 const P3 = 611.657E-6   #MPa        Triple point pressure of water
 const Mr = 18.01528     #kg/kmol    Molecular weight of water
-
+const P_134 = 16.529164252604478 #intersection between region 1, 3 and 4. at T = 623.15
 export Psat, Tsat,
        SatDensL, SatDensV,
        SatHL, SatHV, SatSL, SatSV,
@@ -101,7 +101,46 @@ struct UnitsError <: Exception
 end
 Base.showerror(io::IO, e::UnitsError) = print(io, "UnitsError with ",e.var, ": ", e.message)
 
+#ITP: interpolate-truncate-project.
+#https://en.wikipedia.org/wiki/ITP_method
+function itp_step(f::F,xa,xb,ya,yb,ϵ,κ₁,κ₂,j,nmid,nmax) where F  
+    #calculate parameters
+    xmid = 0.5*(xa + xb)
+    r = ϵ*exp2(nmax-j) - 0.5*(xb - xa)
+    δ = κ₁*(xb - xa)^κ₂
+    #interpolation:
+    xf = (yb*xa-ya*xb)/(yb-ya)
+    #truncate:
+    σ = sign(xmid-xf)
+    xt = δ <= abs(xmid-xf) ? xf + σ*δ : xmid
+    #project:
+    x_itp = abs(xt-xmid) <= r ? xt : xmid - σ*r
+    y_itp = f(x_itp)
+    #update interval
+    if y_itp > 0
+        xb,yb = x_itp,y_itp
+    elseif y_itp < 0
+        xa,ya = x_itp,y_itp
+    else
+        xa,xb = x_itp,x_itp
+    end
+    return xa,xb,ya,yb
+end
 
+function itp_find_zero(f::F,xa,xb;tol = 0.5e-12,max_iters = 100) where F
+    κ₁,κ₂ = 0.2,2.0
+    n0 = 1
+    ya,yb = f(xa),f(xb)
+    nmid = log2((xb-xa)/(2*tol))
+    nmax = nmid + n0
+    for i in 0:max_iters
+        xa,xb,ya,yb = itp_step(f::F,xa,xb,ya,yb,tol,κ₁,κ₂,i,nmid,nmax)
+        if xb - xa <= 2*tol
+            return 0.5*(xa+xb)
+        end
+    end
+    return zero(xb)/zero(xb)
+end
 """
     B23(InputType::Symbol, InputValue)
 
@@ -1157,42 +1196,22 @@ end
 function Region3_TPh(P, h)
     Tlow = 623.15
     Thigh = B23(:P, P)
-    if 16.529164252604478 <= P <= Pc
+    if P_134 <= P <= Pc
         #we are in the saturation boundary
         Tsat = Tsat(P)
         hl,hv = SatHL(Tsat),SatHV(Tsat)
         if hl <= h <= hv
             return Tsat
         elseif h > hv #gas phase, interpolate with h(T_high)
-            hlow = hv
-            hhigh = Region3(:SpecificH, P, Thigh)
+            Tlow = Tsat
         elseif h < hl #liquid phase, interpolate with h(T_low)
-            hlow = Region3(:SpecificH, P, Tlow)
-            hhigh = hl
+            Thigh = Tsat
         end
-    else #22.064 < p <= 100
-        hlow = Region3(:SpecificH, P, Tlow)
-        hhigh = Region3(:SpecificH, P, Thigh)
-    end
-    T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
-    Told = T
-    for i in 1:100
-        h_i = Region3(:SpecificH, P, T)
-        if hlow < h_i
-            hlow = h_i
-            Tlow = T
-        else
-            hhigh = h_i
-            Thigh = T
-        end
-        Told = T
-        T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
-        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
-        if abs(T - Told) < 1e-12
-            return T
-        end
-    end
-    throw(error("Region3_TPh: temperature iterations failed to converge."))
+    end #22.064 < p <= 100
+    f(T) = Region3(:SpecificH, P, T) - h
+    T = itp_find_zero(f,Tlow, Thigh)
+    isnan(T) && throw(error("Region3_TPh: temperature iterations failed to converge."))
+    return T
 end
 
 """
@@ -1204,45 +1223,22 @@ end
 function Region3_TPs(P, s)
     Tlow = 623.15
     Thigh = B23(:P, P)
-    if 16.529164252604478 <= P <= Pc
+    if P_134 <= P <= Pc
         #we are in the saturation boundary
         Tsat = Tsat(P)
         sl,sv = SatSL(Tsat),SatSV(Tsat)
         if sl <= s <= sv
             return Tsat
         elseif s > sv #gas phase, interpolate with s(T_high)
-            slow = sv
-            shigh = Region3(:SpecificS, P, Thigh)
+            Tlow = Tsat
         elseif s < sl #liquid phase, interpolate with s(T_low)
-            slow = Region3(:SpecificS, P, Tlow)
-            shigh = sl
-        end
-    else #Pc < p <= 100
-        slow = Region3(:SpecificS, P, Tlow)
-        shigh = Region3(:SpecificS, P, Thigh)
-    end
-    T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
-    Told = T
-    s_i = (slow + shigh)/2
-    sold = s_i
-    for i in 1:100
-        sold = s_i
-        s_i = Region3(:SpecificS, P, T)
-        if slow < s_i
-            slow = s_i
-            Tlow = T
-        else
-            shigh = s_i
-            Thigh = T
-        end
-        Told = T
-        T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
-        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
-        if abs(s_i - sold) < 1e-12
-            return T
+            Thigh = Tsat
         end
     end
-    throw(error("Region3_TPs: temperature iterations failed to converge."))
+    f(T) = Region3(:SpecificS, P, T) - s
+    T = itp_find_zero(f,Tlow, Thigh)
+    isnan(T) && throw(error("Region3_TPs: temperature iterations failed to converge."))
+    return T
 end
 
 """
@@ -2001,12 +1997,12 @@ end
 
 function Region3_ρ0(P, T)
     if T <= Tc #we are inside saturation. use the saturation volume as initial guess
-        if 16.529164252604478 <= P <= Psat(T) #gas phase
+        if P_134 <= P <= Psat(T) #gas phase
             #gas phase
-            ρ0 = 1000*P/(R*T)
+            return 1000*P/(R*T)
         else
             #liquid phase
-            ρ0 = SatDensL(T)
+            ρ0 = 574.6703980963142
         end
     else #over critical point,it does not matter we start, but a high density point is recomended
         ρ0_liquid = 574.6703980963142 #volume at the intersection of  regions 1-3-4
@@ -2179,57 +2175,19 @@ function Region5(Output::Symbol, P, T)
 end
 
 function Region5_TPh(P, h)
-    Thigh,Tlow = (1073.15,2273.15)
-    hhighT = Region5(:SpecificH, P, Tlow)
-    hlowT = Region5(:SpecificH, P, Thigh)
-    hhigh,hlow = minmax(hhighT,hlowT)
-    T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
-    Told = T
-    for i in 1:100
-        h_i = Region5(:SpecificH, P, T)
-        if hlow < h_i
-            hlow = h_i
-            Tlow = T
-        else
-            hhigh = h_i
-            Thigh = T
-        end
-        Told = T
-        T = Tlow + (Thigh - Tlow) / (hhigh - hlow) * (h - hlow)
-        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
-        if abs(T - Told) < 1e-12
-            return T
-        end
-    end
-    throw(error("Region5_TPh: temperature iterations failed to converge."))
+    Thigh,Tlow = 1073.15,2273.15
+    f(T) = Region5(:SpecificH, P, T) - h
+    T = itp_find_zero(f, Tlow, Thigh)
+    isnan(T) && throw(error("Region5_TPh: temperature iterations failed to converge."))
+    return T
 end
 
 function Region5_TPs(P, s)
-    Thigh,Tlow = (1073.15,2273.15)
-    shigh = Region5(:SpecificS, P, Thigh)
-    slow = Region5(:SpecificS, P, Tlow)
-    T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
-    Told = T
-    s_i = (shigh + slow)/2
-    sold = s_i
-    for i in 1:100
-        sold = s_i
-        s_i = Region5(:SpecificS, P, T)
-        if slow < s_i
-            slow = s_i
-            Tlow = T
-        else
-            shigh = s_i
-            Thigh = T
-        end
-        Told = T
-        T = Tlow + (Thigh - Tlow) / (shigh - slow) * (s - slow)
-        Tlow <= T <= Thigh || (T = 0.5*(Thigh + Tlow))
-        if abs(s_i - sold) < 1e-12
-            return T
-        end
-    end
-    throw(error("Region5_TPs: temperature iterations failed to converge."))
+    Thigh,Tlow = 1073.15,2273.15
+    f(T) = Region5(:SpecificS, P, T) - s
+    T = itp_find_zero(f, Tlow, Thigh)
+    isnan(T) && throw(error("Region5_TPs: temperature iterations failed to converge."))
+    return T
 end
 
 
@@ -2330,8 +2288,12 @@ function RegionID_Ph(P, h)::Symbol
     T = Region1_TPh(P, h)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
-        if P ≥ Psat(T) && h <= SatHL(Region4(:P,P)) #Region1 is only the liquid phase
-            return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
+        if P ≥ Psat(T)  
+            #Region1 is only the liquid phase
+            hlim = P <= P_134 ? SatHL(Region4(:P,P)) : Region1(:SpecificH, P,623.15)
+            if h <= hlim
+                return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
+            end
         end
     end
 
@@ -2415,7 +2377,12 @@ function RegionID_Ps(P, s)::Symbol
     T = Region1_TPs(P, s)
     if 273.15 ≤ T ≤ 623.15
         # could be Region 1
-        if P ≥ Psat(T) && s < SatSL(Region4(:P,P)) #Region 1 is only the liquid phase
+        if P ≥ Psat(T)
+            #Region1 is only the liquid phase
+            slim = P <= P_134 ? SatSL(Region4(:P,P)) : Region1(:SpecificS, P,623.15)
+            if s <= slim
+                return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
+            end
             return :Region1 #, Region1(:SpecificS, P, T) # Return forward s for consistency check
         end
     end
