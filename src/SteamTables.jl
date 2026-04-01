@@ -101,6 +101,36 @@ struct UnitsError <: Exception
 end
 Base.showerror(io::IO, e::UnitsError) = print(io, "UnitsError with ",e.var, ": ", e.message)
 
+function pt_unwrap_units(P::Quantity,T::Quantity)
+    try
+        _P = 1.0*uconvert(u"MPa", P)
+        _T = 1.0*uconvert(u"kJ/kg", T)
+        return _P.val,_T.val
+    catch
+        throw(UnitsError((P,T), "Invalid input units."))
+    end
+end
+
+function ph_unwrap_units(P::Quantity,h::Quantity)
+    try
+        _P = 1.0*uconvert(u"MPa", P)
+        _h = 1.0*uconvert(u"kJ/kg", h)
+        return _P.val,_h.val
+    catch
+        throw(UnitsError((P,T), "Invalid input units."))
+    end
+end
+
+function ps_unwrap_units(P::Quantity,s::Quantity)
+    try
+        _P = 1.0*uconvert(u"MPa", P)
+        _s = 1.0*uconvert(u"kJ/kg/K", s)
+        return _P.val,_h.val
+    catch
+        throw(UnitsError((P,T), "Invalid input units."))
+    end
+end
+
 #ITP: interpolate-truncate-project.
 #https://en.wikipedia.org/wiki/ITP_method
 function itp_step(f::F,xa,xb,ya,yb,ϵ,κ₁,κ₂,j,nmid,nmax) where F  
@@ -210,7 +240,7 @@ function Region1(Output::Symbol, P, T)
     Pstar = 16.53   #MPa
     Tstar = 1386.0  #K
 
-    n = [0.146_329_712_131_67,
+    n = (0.146_329_712_131_67,
         -0.845_481_871_691_14,
         -0.375_636_036_720_40E1,
          0.338_551_691_683_85E1,
@@ -243,9 +273,9 @@ function Region1(Output::Symbol, P, T)
          0.263_357_816_627_95E-22,
         -0.119_476_226_400_71E-22,
          0.182_280_945_814_04E-23,
-        -0.935_370_872_924_58E-25]
+        -0.935_370_872_924_58E-25)
 
-    I = [0,
+    I = (0,
          0,
          0,
          0,
@@ -278,9 +308,9 @@ function Region1(Output::Symbol, P, T)
          29,
          30,
          31,
-         32]
+         32)
 
-    J = [-2,
+    J = (-2,
          -1,
          0,
          1,
@@ -313,19 +343,19 @@ function Region1(Output::Symbol, P, T)
          -38,
          -39,
          -40,
-         -41]
+         -41)
 
     π = P / Pstar
     τ = Tstar / T
     ππ = 7.1 - π
     ττ = τ - 1.222
 
-    γ    = sum([n[i]*(ππ^I[i])*(ττ^J[i]) for i=1:34])
-    γ_π  = sum([-n[i]*I[i]*(ππ^(I[i]-1))*(ττ^J[i]) for i=1:34])
-    γ_ππ = sum([n[i]*I[i]*(I[i]-1)*(ππ^(I[i]-2))*(ττ^J[i]) for i=1:34])
-    γ_τ  = sum([n[i]*(ππ^I[i])*J[i]*(ττ^(J[i]-1)) for i=1:34])
-    γ_ττ = sum([n[i]*(ππ^I[i])*J[i]*(J[i]-1)*(ττ^(J[i]-2)) for i=1:34])
-    γ_πτ = sum([-n[i]*I[i]*(ππ^(I[i]-1))*J[i]*(ττ^(J[i]-1)) for i=1:34])
+    γ    = sum(n[i]*(ππ^I[i])*(ττ^J[i]) for i=1:34)
+    γ_π  = sum(-n[i]*I[i]*(ππ^(I[i]-1))*(ττ^J[i]) for i=1:34)
+    γ_ππ = sum(n[i]*I[i]*(I[i]-1)*(ππ^(I[i]-2))*(ττ^J[i]) for i=1:34)
+    γ_τ  = sum(n[i]*(ππ^I[i])*J[i]*(ττ^(J[i]-1)) for i=1:34)
+    γ_ττ = sum(n[i]*(ππ^I[i])*J[i]*(J[i]-1)*(ττ^(J[i]-2)) for i=1:34)
+    γ_πτ = sum(-n[i]*I[i]*(ππ^(I[i]-1))*J[i]*(ττ^(J[i]-1)) for i=1:34)
 
     if Output == :SpecificG            #kJ/kg
         return R*T*γ
@@ -361,7 +391,7 @@ end
 function Region1_TPh(P, h)
     hstar = 2500 #kJ/kg
 
-    n = [-0.238_724_899_245_21E3,
+    n = (-0.238_724_899_245_21E3,
           0.404_211_886_379_45E3,
           0.113_497_468_817_18E3,
          -0.584_576_160_480_39E1,
@@ -380,9 +410,9 @@ function Region1_TPh(P, h)
           0.806_707_341_030_27E-10,
          -0.934_777_712_139_47E-12,
           0.582_654_420_206_01E-14,
-         -0.150_201_859_535_03E-16]
+         -0.150_201_859_535_03E-16)
 
-    I = [0,
+    I = (0,
          0,
          0,
          0,
@@ -401,9 +431,9 @@ function Region1_TPh(P, h)
          3,
          4,
          5,
-         6]
+         6)
 
-    J = [0,
+    J = (0,
          1,
          2,
          6,
@@ -422,10 +452,10 @@ function Region1_TPh(P, h)
          32,
          32,
          32,
-         32]
+         32)
 
     η = h / hstar
-    return sum([n[i]*P^I[i]*(η+1)^J[i] for i=1:20])
+    return sum(n[i]*P^I[i]*(η+1)^J[i] for i=1:20)
 end
 
 """
@@ -437,7 +467,7 @@ end
     If you need better accuracy (why???), start with this value and iterate.
 """
 function Region1_TPs(P, s)
-    n = [0.174_782_680_583_07E3,
+    n = (0.174_782_680_583_07E3,
          0.348_069_308_928_73E2,
          0.652_925_849_784_55E1,
          0.330_399_817_754_89,
@@ -456,9 +486,9 @@ function Region1_TPs(P, s)
         -0.425_226_570_422_07E-25,
          0.264_004_413_606_89E-12,
          0.781_246_004_597_23E-28,
-        -0.307_321_999_036_68E-30]
+        -0.307_321_999_036_68E-30)
 
-    I = [0,
+    I = (0,
          0,
          0,
          0,
@@ -477,9 +507,9 @@ function Region1_TPs(P, s)
          2,
          3,
          3,
-         4]
+         4)
 
-    J = [0,
+    J = (0,
          1,
          2,
          3,
@@ -498,9 +528,9 @@ function Region1_TPs(P, s)
          31,
          10,
          32,
-         32]
+         32)
 
-    return sum([n[i]*P^I[i]*(s+2)^J[i] for i=1:20])
+    return sum(n[i]*P^I[i]*(s+2)^J[i] for i=1:20)
 end
 
 """
@@ -527,7 +557,7 @@ function Region2(Output::Symbol, P, T)
     Pstar = 1.0    #MPa
     Tstar = 540.0  #K
 
-    no = [-0.969_276_865_002_17E1,
+    no = (-0.969_276_865_002_17E1,
            0.100_866_559_680_18E2,
           -0.560_879_112_830_20E-2,
            0.714_527_380_814_55E-1,
@@ -535,9 +565,9 @@ function Region2(Output::Symbol, P, T)
            0.142_408_191_714_44E1,
           -0.438_395_113_194_50E1,
           -0.284_086_324_607_72,
-           0.212_684_637_533_07E-1]
+           0.212_684_637_533_07E-1)
 
-    Jo = [0,
+    Jo = (0,
           1,
          -5,
          -4,
@@ -545,9 +575,9 @@ function Region2(Output::Symbol, P, T)
          -2,
          -1,
           2,
-          3]
+          3)
 
-    nr = [-0.177_317_424_732_13E-2,
+    nr = (-0.177_317_424_732_13E-2,
           -0.178_348_622_923_58E-1,
           -0.459_960_136_963_65E-1,
           -0.575_812_590_834_32E-1,
@@ -589,9 +619,9 @@ function Region2(Output::Symbol, P, T)
           -0.127_686_089_346_81E-14,
            0.730_876_105_950_61E-28,
            0.554_147_153_507_78E-16,
-          -0.943_697_072_412_10E-6]
+          -0.943_697_072_412_10E-6)
 
-    Ir = [1,
+    Ir = (1,
           1,
           1,
           1,
@@ -633,9 +663,9 @@ function Region2(Output::Symbol, P, T)
           23,
           24,
           24,
-          24]
+          24)
 
-    Jr = [0,
+    Jr = (0,
           1,
           2,
           3,
@@ -677,24 +707,24 @@ function Region2(Output::Symbol, P, T)
           39,
           26,
           40,
-          58]
+          58)
 
     π = P / Pstar
     τ = Tstar / T
 
-    γo    = log(π) + sum([no[i]*τ^Jo[i] for i=1:9])
+    γo    = log(π) + sum(no[i]*τ^Jo[i] for i=1:9)
     γo_π  = 1/π
     γo_ππ = -1/(π^2)
-    γo_τ  = sum([no[i]*Jo[i]*τ^(Jo[i]-1) for i=1:9])
-    γo_ττ = sum([no[i]*Jo[i]*(Jo[i]-1)*τ^(Jo[i]-2) for i=1:9])
+    γo_τ  = sum(no[i]*Jo[i]*τ^(Jo[i]-1) for i=1:9)
+    γo_ττ = sum(no[i]*Jo[i]*(Jo[i]-1)*τ^(Jo[i]-2) for i=1:9)
     γo_πτ = 0
 
-    γr    = sum([nr[i]*π^Ir[i]*(τ-0.5)^Jr[i] for i = 1:43])
-    γr_π  = sum([nr[i]*Ir[i]*π^(Ir[i]-1)*(τ-0.5)^Jr[i] for i=1:43])
-    γr_ππ = sum([nr[i]*Ir[i]*(Ir[i]-1)*π^(Ir[i]-2)*(τ-0.5)^Jr[i] for i=1:43])
-    γr_τ  = sum([nr[i]*π^Ir[i]*Jr[i]*(τ-0.5)^(Jr[i]-1) for i=1:43])
-    γr_ττ = sum([nr[i]*π^Ir[i]*Jr[i]*(Jr[i]-1)*(τ-0.5)^(Jr[i]-2) for i=1:43])
-    γr_πτ = sum([nr[i]*Ir[i]*π^(Ir[i]-1)*Jr[i]*(τ-0.5)^(Jr[i]-1) for i = 1:43])
+    γr    = sum(nr[i]*π^Ir[i]*(τ-0.5)^Jr[i] for i = 1:43)
+    γr_π  = sum(nr[i]*Ir[i]*π^(Ir[i]-1)*(τ-0.5)^Jr[i] for i=1:43)
+    γr_ππ = sum(nr[i]*Ir[i]*(Ir[i]-1)*π^(Ir[i]-2)*(τ-0.5)^Jr[i] for i=1:43)
+    γr_τ  = sum(nr[i]*π^Ir[i]*Jr[i]*(τ-0.5)^(Jr[i]-1) for i=1:43)
+    γr_ττ = sum(nr[i]*π^Ir[i]*Jr[i]*(Jr[i]-1)*(τ-0.5)^(Jr[i]-2) for i=1:43)
+    γr_πτ = sum(nr[i]*Ir[i]*π^(Ir[i]-1)*Jr[i]*(τ-0.5)^(Jr[i]-1) for i = 1:43)
 
 
     if Output == :SpecificG            #kJ/kg
@@ -724,7 +754,7 @@ end
     Region2meta
 
     Returns all the property values in region 2 in the metastable region,
-    from the saturated-vapour line to the 5% equlibrium moisture line, a.k.a the
+    from the saturated-vapour line to the 5% equilibrium moisture line, a.k.a the
     practical Wilson line:
         %equilibrium moisture = [h - h_liq(P)] / [h_vap(P) - h_liq(P)]
     for pressures from P3 up to 10MPa.
@@ -744,7 +774,7 @@ function Region2meta(Output::Symbol, P, T)
     Pstar = 1.0    #MPa
     Tstar = 540.0  #K
 
-    no = [-0.969_372_683_930_49E1, #Updated from Region_2
+    no = (-0.969_372_683_930_49E1, #Updated from Region_2
            0.100_872_759_700_06E2, #Updated from Region_2
           -0.560_879_112_830_20E-2,
            0.714_527_380_814_55E-1,
@@ -752,9 +782,9 @@ function Region2meta(Output::Symbol, P, T)
            0.142_408_191_714_44E1,
           -0.438_395_113_194_50E1,
           -0.284_086_324_607_72,
-           0.212_684_637_533_07E-1]
+           0.212_684_637_533_07E-1)
 
-    Jo = [ 0,
+    Jo = ( 0,
            1,
           -5,
           -4,
@@ -762,9 +792,9 @@ function Region2meta(Output::Symbol, P, T)
           -2,
           -1,
            2,
-           3]
+           3)
 
-    nr = [-0.733_622_601_865_06E-2,
+    nr = (-0.733_622_601_865_06E-2,
           -0.882_238_319_431_46E-1,
           -0.723_345_552_132_45E-1,
           -0.408_131_785_344_55E-2,
@@ -776,9 +806,9 @@ function Region2meta(Output::Symbol, P, T)
            0.753_215_815_227_70E-2,
           -0.792_383_754_461_39E-2,
           -0.228_881_607_784_47E-3,
-          -0.264_565_014_828_10E-2]
+          -0.264_565_014_828_10E-2)
 
-    Ir = [1,
+    Ir = (1,
           1,
           1,
           1,
@@ -790,9 +820,9 @@ function Region2meta(Output::Symbol, P, T)
           4,
           4,
           5,
-          5]
+          5)
 
-    Jr = [0,
+    Jr = (0,
           2,
           5,
           11,
@@ -804,24 +834,24 @@ function Region2meta(Output::Symbol, P, T)
           7,
           10,
           9,
-          10]
+          10)
 
     π = P / Pstar
     τ = Tstar / T
 
-    γo    = log(π) + sum([no[i]*τ^Jo[i] for i=1:9])
+    γo    = log(π) + sum(no[i]*τ^Jo[i] for i=1:9)
     γo_π  = 1/π
     γo_ππ = -1/(π^2)
-    γo_τ  = sum([no[i]*Jo[i]*τ^(Jo[i]-1) for i=1:9])
-    γo_ττ = sum([no[i]*Jo[i]*(Jo[i]-1)*τ^(Jo[i]-2) for i=1:9])
+    γo_τ  = sum(no[i]*Jo[i]*τ^(Jo[i]-1) for i=1:9)
+    γo_ττ = sum(no[i]*Jo[i]*(Jo[i]-1)*τ^(Jo[i]-2) for i=1:9)
     γo_πτ = 0
 
-    γr    = sum([nr[i]*π^Ir[i]*(τ-0.5)^Jr[i] for i = 1:13])
-    γr_π  = sum([nr[i]*Ir[i]*π^(Ir[i]-1)*(τ-0.5)^Jr[i] for i=1:13])
-    γr_ππ = sum([nr[i]*Ir[i]*(Ir[i]-1)*π^(Ir[i]-2)*(τ-0.5)^Jr[i] for i=1:13])
-    γr_τ  = sum([nr[i]*π^Ir[i]*Jr[i]*(τ-0.5)^(Jr[i]-1) for i=1:13])
-    γr_ττ = sum([nr[i]*π^Ir[i]*Jr[i]*(Jr[i]-1)*(τ-0.5)^(Jr[i]-2) for i=1:13])
-    γr_πτ = sum([nr[i]*Ir[i]*π^(Ir[i]-1)*Jr[i]*(τ-0.5)^(Jr[i]-1) for i = 1:13])
+    γr    = sum(nr[i]*π^Ir[i]*(τ-0.5)^Jr[i] for i = 1:13)
+    γr_π  = sum(nr[i]*Ir[i]*π^(Ir[i]-1)*(τ-0.5)^Jr[i] for i=1:13)
+    γr_ππ = sum(nr[i]*Ir[i]*(Ir[i]-1)*π^(Ir[i]-2)*(τ-0.5)^Jr[i] for i=1:13)
+    γr_τ  = sum(nr[i]*π^Ir[i]*Jr[i]*(τ-0.5)^(Jr[i]-1) for i=1:13)
+    γr_ττ = sum(nr[i]*π^Ir[i]*Jr[i]*(Jr[i]-1)*(τ-0.5)^(Jr[i]-2) for i=1:13)
+    γr_πτ = sum(nr[i]*Ir[i]*π^(Ir[i]-1)*Jr[i]*(τ-0.5)^(Jr[i]-1) for i = 1:13)
 
     if Output == :SpecificG            #kJ/kg
         return R*T*(γo + γr)
@@ -964,7 +994,7 @@ function Region2a_TPh(P, h)
     π = P / Pstar
     ηη = h / hstar - 2.1
 
-    return sum([n[i]*π^I[i]*ηη^J[i] for i=1:34])
+    return sum(n[i]*π^I[i]*ηη^J[i] for i=1:34)
 end
 
 """
@@ -1097,7 +1127,7 @@ function Region2b_TPh(P, h)
     ππ = P / Pstar - 2
     ηη = h / hstar - 2.6
 
-    return sum([n[i]*ππ^I[i]*ηη^J[i] for i=1:38])
+    return sum(n[i]*ππ^I[i]*ηη^J[i] for i=1:38)
 end
 
 """
@@ -1185,7 +1215,7 @@ function Region2c_TPh(P, h)
     ππ = P / Pstar + 25
     ηη = h / hstar - 1.8
 
-    return sum([n[i]*ππ^I[i]*ηη^J[i] for i=1:23])
+    return sum(n[i]*ππ^I[i]*ηη^J[i] for i=1:23)
 end
 
 """
@@ -1221,23 +1251,21 @@ end
     Returns T [K] from P[MPa] and s[kJ/kg/K] in Region 3.
     Pressures in MPa and temperature in [K]
 """
-function Region3_TPs(P, s)
-    Tlow = 623.15
-    Thigh = B23(:P, P)
-    if P_134 <= P <= Pc
-        #we are in the saturation boundary
-        Tsat = Tsat(P)
-        sl,sv = SatSL(Tsat),SatSV(Tsat)
-        if sl <= s <= sv
-            return Tsat
-        elseif s > sv #gas phase, interpolate with s(T_high)
-            Tlow = Tsat
-        elseif s < sl #liquid phase, interpolate with s(T_low)
-            Thigh = Tsat
-        end
+function Region3_TPs(P, s, symbol::Symbol)
+    T13 = 623.15*one(P)
+    if symbol == :Region3_liquid
+        Tmin = T13
+        Tmax = Tsat(P)
+    elseif symbol == :Region3_vapour
+        Tmin = Tsat(P)
+        Tmax = B23(:P, P)
+    else
+        Tmin = T13
+        Tmax = B23(:P, P)
     end
-    f(T) = Region3(:SpecificS, P, T) - s
-    T = itp_find_zero(f,Tlow, Thigh)
+    f(t) = Region3(:SpecificS, P, 1/t) - s
+    t = itp_find_zero(f,1/Tmin, 1/Tmax)
+    T = 1/t
     isnan(T) && throw(error("Region3_TPs: temperature iterations failed to converge."))
     return T
 end
@@ -1396,7 +1424,7 @@ function Region2a_TPs(P, s)
     π = P / Pstar
     σσ = s / sstar - 2.0
 
-    return sum([n[i]*π^I[i]*σσ^J[i] for i=1:46])
+    return sum(n[i]*π^I[i]*σσ^J[i] for i=1:46)
 end
 
 """
@@ -1547,7 +1575,7 @@ function Region2b_TPs(P, s)
     π = P / Pstar
     σσ = 10.0 - s / sstar
 
-    return sum([n[i]*π^I[i]*σσ^J[i] for i=1:44])
+    return sum(n[i]*π^I[i]*σσ^J[i] for i=1:44)
 end
 
 """
@@ -1656,7 +1684,7 @@ function Region2c_TPs(P, s)
     π = P / Pstar
     σσ = 2.0 - s / sstar
 
-    return sum([n[i]*π^I[i]*σσ^J[i] for i=1:30])
+    return sum(n[i]*π^I[i]*σσ^J[i] for i=1:30)
 end
 
 
@@ -1807,179 +1835,46 @@ function Region3_ρ(Output::Symbol, ρ, T)
     δ = ρ / ρstar
     τ = Tstar / T
 
-    ϕ    =  n[1]*log(δ) + sum([n[i]*(δ^I[i])*(τ^J[i]) for i=2:40])
-    ϕ_δ  =  n[1]/δ + sum([n[i]*I[i]*(δ^(I[i]-1))*(τ^J[i]) for i=2:40])
-    ϕ_δδ = -n[1]/(δ^2) + sum([n[i]*I[i]*(I[i]-1)*(δ^(I[i]-2))*(τ^J[i]) for i=2:40])
-    ϕ_τ  =  sum([n[i]*(δ^I[i])*J[i]*(τ^(J[i]-1)) for i=2:40])
-    ϕ_ττ =  sum([n[i]*(δ^I[i])*J[i]*(J[i]-1)*(τ^(J[i]-2)) for i=2:40])
-    ϕ_δτ =  sum([n[i]*I[i]*(δ^(I[i]-1))*J[i]*(τ^(J[i]-1)) for i=2:40])
+    ϕ    =  n[1]*log(δ) + sum(n[i]*(δ^I[i])*(τ^J[i]) for i=2:40)
+
+    if Output == :SpecificF            #kJ/kg
+        return R*T*ϕ
+    end
+
+    ϕ_δ  =  n[1]/δ + sum(n[i]*I[i]*(δ^(I[i]-1))*(τ^J[i]) for i=2:40)
 
     if Output == :SpecificG            #kJ/kg
         return R*T*(δ*ϕ_δ + ϕ)
-    elseif Output == :SpecificF        #kJ/kg
-        return R*T*ϕ
     elseif Output == :Pressure         #MPa
         return ρ*R*T*δ*ϕ_δ/1000
-    elseif Output == :SpecificU        #kJ/kg
+    end
+
+    ϕ_τ  =  sum(n[i]*(δ^I[i])*J[i]*(τ^(J[i]-1)) for i=2:40)
+
+    if Output == :SpecificU            #kJ/kg
         return R*T*τ*ϕ_τ
     elseif Output == :SpecificS        #kJ/kgK
         return R*(τ*ϕ_τ - ϕ)
     elseif Output == :SpecificH        #kJ/kg
         return R*T*(τ*ϕ_τ + δ*ϕ_δ)
-    elseif Output == :SpecificCP       #kJ/kgK
-        return R*(-τ^2*ϕ_ττ+((δ*ϕ_δ - δ*τ*ϕ_δτ)^2)/(2*δ*ϕ_δ + δ^2*ϕ_δδ))
-    elseif Output == :SpecificCV       #kJ/kgK
+    end
+
+    ϕ_ττ =  sum(n[i]*(δ^I[i])*J[i]*(J[i]-1)*(τ^(J[i]-2)) for i=2:40)
+
+    if Output == :SpecificCV           #kJ/kgK
         return R*(-τ^2*ϕ_ττ)
+    end
+
+    ϕ_δδ = -n[1]/(δ^2) + sum(n[i]*I[i]*(I[i]-1)*(δ^(I[i]-2))*(τ^J[i]) for i=2:40)
+    ϕ_δτ =  sum(n[i]*I[i]*(δ^(I[i]-1))*J[i]*(τ^(J[i]-1)) for i=2:40)
+
+    if Output == :SpecificCP           #kJ/kgK
+        return R*(-τ^2*ϕ_ττ+((δ*ϕ_δ - δ*τ*ϕ_δτ)^2)/(2*δ*ϕ_δ + δ^2*ϕ_δδ))
     elseif Output == :SpeedOfSound     #m/s
         return sqrt(1000*R*T*(2*δ*ϕ_δ + δ^2*ϕ_δδ - ((δ*ϕ_δ - δ*τ*ϕ_δτ)^2)/(τ^2*ϕ_ττ)))
     else
         throw(DomainError(Output, "Unknown value requested."))
     end
-end
-
-function Region3_p∂p∂ρ(ρ, T)
-    ρstar = ρc      #kg/m3
-    Tstar = Tc      #K
-
-    n = (0.106_580_700_285_13E1,
-        -0.157_328_452_902_39E2,
-         0.209_443_969_743_07E2,
-        -0.768_677_078_787_16E1,
-         0.261_859_477_879_54E1,
-        -0.280_807_811_486_20E1,
-         0.120_533_696_965_17E1,
-        -0.845_668_128_125_02E-2,
-        -0.126_543_154_777_14E1,
-        -0.115_244_078_066_81E1,
-         0.885_210_439_843_18,
-        -0.642_077_651_816_07,
-         0.384_934_601_866_71,
-        -0.852_147_088_242_06,
-         0.489_722_815_418_77E1,
-        -0.305_026_172_569_65E1,
-         0.394_205_368_791_54E-1,
-         0.125_584_084_243_08,
-        -0.279_993_296_987_10,
-         0.138_997_995_694_60E1,
-        -0.201_899_150_235_70E1,
-        -0.821_476_371_739_63E-2,
-        -0.475_960_357_349_23,
-         0.439_840_744_735_00E-1,
-        -0.444_764_354_287_39,
-         0.905_720_707_197_33,
-         0.705_224_500_879_67,
-         0.107_705_126_263_32,
-        -0.329_136_232_589_54,
-        -0.508_710_620_411_58,
-        -0.221_754_008_730_96E-1,
-         0.942_607_516_650_92E-1,
-         0.164_362_784_479_61,
-        -0.135_033_722_413_48E-1,
-        -0.148_343_453_524_72E-1,
-         0.579_229_536_280_84E-3,
-         0.323_089_047_037_11E-2,
-         0.809_648_029_962_15E-4,
-        -0.165_576_797_950_37E-3,
-        -0.449_238_990_618_15E-4)
-
-    I = (0,
-         0,
-         0,
-         0,
-         0,
-         0,
-         0,
-         0,
-         1,
-         1,
-         1,
-         1,
-         2,
-         2,
-         2,
-         2,
-         2,
-         2,
-         3,
-         3,
-         3,
-         3,
-         3,
-         4,
-         4,
-         4,
-         4,
-         5,
-         5,
-         5,
-         6,
-         6,
-         6,
-         7,
-         8,
-         9,
-         9,
-         10,
-         10,
-         11)
-
-    J = (0,
-         0,
-         1,
-         2,
-         7,
-         10,
-         12,
-         23,
-         2,
-         6,
-         15,
-         17,
-         0,
-         2,
-         6,
-         7,
-         22,
-         26,
-         0,
-         2,
-         4,
-         16,
-         26,
-         0,
-         2,
-         4,
-         26,
-         1,
-         3,
-         26,
-         0,
-         2,
-         26,
-         2,
-         26,
-         2,
-         26,
-         0,
-         1,
-         26)
-
-    δ = ρ / ρstar
-    τ = Tstar / T
-    logδ = log(δ)
-    logτ = log(τ)
-    ϕ    =  n[1]*logδ+ sum([n[i]*exp(logδ*I[i]+logτ*J[i]) for i=2:40])
-    ϕ_δ  =  n[1]/δ + sum([n[i]*I[i]*exp(logδ*(I[i]-1)+logτ*J[i]) for i=2:40])
-    ϕ_δδ = -n[1]/(δ^2) + sum([n[i]*I[i]*(I[i]-1)*exp(logδ*(I[i]-2)+logτ*J[i]) for i=2:40])
-    #ϕ_δ  =  n[1]/δ + sum([n[i]*I[i]*(δ^(I[i]-1))*(τ^J[i]) for i=2:40])
-    #ϕ_δδ = -n[1]/(δ^2) + sum([n[i]*I[i]*(I[i]-1)*(δ^(I[i]-2))*(τ^J[i]) for i=2:40])
-
-    k = R*T*ρstar/1000
-    #p = ρ*R*T*δ*ϕ_δ/1000
-    p = k*δ*δ*ϕ_δ
-    ∂p∂δ = k*(2*δ*ϕ_δ + δ*δ*ϕ_δδ)
-    ∂p∂ρ = ∂p∂δ/ρstar
-    return p, ∂p∂ρ
 end
 
 """
@@ -1996,42 +1891,34 @@ function Region3(Output::Symbol, P, T)
     end
 end
 
-function Region3_ρ0(P, T)
-    if T <= Tc #we are inside saturation. use the saturation volume as initial guess
-        if P_134 <= P <= Psat(T) #gas phase
-            #gas phase
-            return 1000*P/(R*T)
-        else
-            #liquid phase
-            ρ0 = 574.6703980963142
-        end
-    else #over critical point,it does not matter we start, but a high density point is recomended
-        ρ0_liquid = 574.6703980963142 #volume at the intersection of  regions 1-3-4
-        _,∂p∂ρᵢ = Region3_p∂p∂ρ(ρ0_liquid, T)
-        if ∂p∂ρᵢ > 0
-            return ρ0_liquid
-        else
-            return 1/Region2(:SpecificV,P,B23(:P,P))
-        end
-    end
+"""
+    Region3_ρmax(T)
+
+Polynomial approximation for the density of water at p = 100Mpa, 623.15K ≤ T ≤ 863.15K.
+Used as an upper bound for the density solver.
+"""
+function Region3_ρmax(T)
+    poly = (-142.63851832884066, -1.2368283866484552e6, 2.338349403229134e9, -7.587329667113224e11, 1.999741934763228e11, 7.779563700391275e8, -2057.9918959529023)
+    #with a margin of error of 4, all points of the approximation generate a higher density than the true density at 100mPa, so the boundary is bounded.
+    return evalpoly(1/T,poly) + 4
 end
 
-Region3_ρPT(P,T) = Region3_ρPT(P,T,Region3_ρ0(P,T))
-
-function Region3_ρPT(P,T,ρ0)
-    #this solver is used to solve the GERG2008 equation of state.
-    #is a modified newton raphson solver.
-    logρ = log(ρ0)
-    for i in 1:100
-        ρᵢ = exp(logρ)
-        Pᵢ,∂p∂ρᵢ = Region3_p∂p∂ρ(ρᵢ, T)
-        ΔP = (P - Pᵢ)
-        Δ = ΔP/(ρᵢ*∂p∂ρᵢ)    
-        logρ = logρ + Δ
-        abs(ΔP) < 3eps(Pᵢ) && return exp(logρ)
-        abs(Δ) < 1e-12 && return exp(logρ)
+function Region3_ρPT(P,T)
+    if T <= Tc #we are inside saturation. use the saturation volume as initial guess
+        Ps = Psat(T)
+        if P_134 <= P <= Ps #gas phase
+            ρmax = SatDensV(T)
+            ρmin = 1/Region2(:SpecificV,B23(:T,T),T)
+        else
+            ρmax = Region3_ρmax(T)
+            ρmin = SatDensL(T)
+        end
+    else #over critical point
+        ρmin = 1/Region2(:SpecificV,B23(:T,T),T)
+        ρmax = Region3_ρmax(T)
     end
-    return zero(ρ0)/zero(ρ0)
+    f(ρ) = Region3_ρ(:Pressure,ρ,T) - P
+    return itp_find_zero(f,ρmin,ρmax)
 end
 
 
@@ -2100,57 +1987,57 @@ function Region5(Output::Symbol, P, T)
     Pstar = 1.0     #MPa
     Tstar = 1000.0  #K
 
-    no = [-0.131_799_836_742_01E2,
+    no = (-0.131_799_836_742_01E2,
            0.685_408_416_344_34E1,
           -0.248_051_489_334_66E-1,
            0.369_015_349_803_33,
           -0.311_613_182_139_25E1,
-          -0.329_616_265_389_17]
+          -0.329_616_265_389_17)
 
-    Jo = [0,
+    Jo = (0,
           1,
          -3,
          -2,
          -1,
-          2]
+          2)
 
-    nr = [0.157_364_048_552_59E-2,
+    nr = (0.157_364_048_552_59E-2,
           0.901_537_616_739_44E-3,
          -0.502_700_776_776_48E-2,
           0.224_400_374_094_85E-5,
          -0.411_632_754_534_71E-5,
-          0.379_194_548_229_55E-7]
+          0.379_194_548_229_55E-7)
 
-    Ir = [1,
+    Ir = (1,
           1,
           1,
           2,
           2,
-          3]
+          3)
 
-    Jr = [1,
+    Jr = (1,
           2,
           3,
           3,
           9,
-          7]
+          7)
 
     π = P / Pstar
     τ = Tstar / T
 
-    γo    =  log(π) + sum([no[i]*(τ^Jo[i]) for i=1:6])
+    γo    =  log(π) + sum(no[i]*(τ^Jo[i]) for i=1:6)
     γo_π  =  1/π
     γo_ππ = -1/(π^2)
-    γo_τ  =          sum([no[i]*Jo[i]*(τ^(Jo[i]-1)) for i=1:6])
-    γo_ττ =          sum([no[i]*Jo[i]*(Jo[i]-1)*(τ^(Jo[i]-2)) for i=1:6])
+    γo_τ  = sum(no[i]*Jo[i]*(τ^(Jo[i]-1)) for i=1:6)
+    γo_ττ = sum(no[i]*Jo[i]*(Jo[i]-1)*(τ^(Jo[i]-2)) for i=1:6)
     γo_πτ = 0
 
-    γr    = sum([nr[i]*(π^Ir[i])*(τ^Jr[i]) for i=1:6])
-    γr_π  = sum([nr[i]*Ir[i]*(π^(Ir[i]-1))*(τ^Jr[i]) for i=1:6])
-    γr_ππ = sum([nr[i]*Ir[i]*(Ir[i]-1)*(π^(Ir[i]-2))*(τ^Jr[i]) for i=1:6])
-    γr_τ  = sum([nr[i]*(π^Ir[i])*Jr[i]*(τ^(Jr[i]-1)) for i=1:6])
-    γr_ττ = sum([nr[i]*(π^Ir[i])*Jr[i]*(Jr[i]-1)*(τ^(Jr[i]-2)) for i=1:6])
-    γr_πτ = sum([nr[i]*Ir[i]*(π^(Ir[i]-1))*Jr[i]*(τ^(Jr[i]-1)) for i=1:6])
+    γr    = sum(nr[i]*(π^Ir[i])*(τ^Jr[i]) for i=1:6)
+    γr_π  = sum(nr[i]*Ir[i]*(π^(Ir[i]-1))*(τ^Jr[i]) for i=1:6)
+    γr_ππ = sum(nr[i]*Ir[i]*(Ir[i]-1)*(π^(Ir[i]-2))*(τ^Jr[i]) for i=1:6)
+    γr_τ  = sum(nr[i]*(π^Ir[i])*Jr[i]*(τ^(Jr[i]-1)) for i=1:6)
+    γr_ττ = sum(nr[i]*(π^Ir[i])*Jr[i]*(Jr[i]-1)*(τ^(Jr[i]-2)) for i=1:6)
+    γr_πτ = sum(nr[i]*Ir[i]*(π^(Ir[i]-1))*Jr[i]*(τ^(Jr[i]-1)) for i=1:6)
 
     if Output == :SpecificG            #kJ/kg
         return R*T*(γo + γr)
@@ -2190,7 +2077,6 @@ function Region5_TPs(P, s)
     isnan(T) && throw(error("Region5_TPs: temperature iterations failed to converge."))
     return T
 end
-
 
 """
     RegionID
@@ -2264,81 +2150,110 @@ end
 """
 function RegionID_Ph(P, h)::Symbol
 
-    #=
-        Region 1:
-        273.15K ≤ T ≤ 623.15K  Psat(T) ≤ P ≤ 100MPa
-
-        Region 2:
-        273.15K ≤ T ≤ 623.15K  0 ≤ P ≤ Psat(T)
-        623.15K <  T ≤ 863.15K  0 <  P ≤ P(T) from B23-model
-        863.15K <  T ≤ 1073.15K 0 <  P ≤ 100MPa
-        For reverse:
-            2a: P ≤ 4Mpa
-            2b: s ≥ 5.85 kJ/kgK (or use function B2bc if P,h specificed)
-            2c: s ≥ 5.85 kJ/kgK (or use function B2bc if P,h specificed)
-        
-            Region 3:
-        Psat(623.15) ≤ P ≤ 100MPa
-    =#
-
     # Check overall region first
     if P > 100
-        throw(DomainError(P, "Pressure not in valid ranges."))
+        throw(DomainError((P, s), "pressure over maximum (100 Mpa)."))
     end
 
-    T = Region1_TPh(P, h)
-    if 273.15 ≤ T ≤ 623.15
-        # could be Region 1
-        if P ≥ Psat(T)  
-            #Region1 is only the liquid phase
-            hlim = P <= P_134 ? SatHL(Region4(:P,P)) : Region1(:SpecificH, P,623.15)
-            if h <= hlim
-                return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
-            end
-        end
-    end
+    nan = NaN*one(P+s+1.0)
+    hl = nan
+    hv = nan
+    Ts = nan
 
-    if P ≤ 4.0
-        # could be Region 2a
-        T = Region2a_TPh(P, h)
-        if Tsat(P) ≤ T ≤ 1073.15
-            return :Region2a #, Region2(:SpecificH, P, T) # Return forward h for consistency check
-        else
-            throw(DomainError((P, T), "Pressure/Temperature outside valid ranges.")) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
+    phase = :unknown
+    if P <= Pc
+        Ts = Region4(:P,P)
+        hl = SatHL(Ts)
+        hv = SatHV(Ts)
+        hl ≤ h ≤ hv && (return :Region4)
+        if h > hv
+            phase = :vapour
+        elseif h < hl
+            phase = :liquid
         end
     else
-        htest = B2bc(:P, P)
-        if h < htest
-            # could be Region 2c
-            T = Region2c_TPh(P, h)
-            if P ≤ Psat(623.15)
-                if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2c #, Region2(:SpecificH, P, T) # Return forward h for consistency check
-                end
-            elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2c #, Region2(:SpecificH, P, T) # Return forward h for consistency check
-            elseif h <= Region3(:SpecificH, P, B23(:P, P))
-                return :Region3
-            else
-                throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
-            end
+        phase = :supercritical
+    end
+
+    if phase == :liquid
+        #Region1 or Region3
+        Region1_T = Region1_TPh(P, h)
+        if P <= P_134
+            273.15 ≤ Region1_T ≤ 620.15 && (return :Region1) #we are sure that we are inside region 1
+        end
+
+        h13 = Region1(:SpecificH,P,623.15)
+        β3 = (h13 - h)/(h13 - hl)
+        if 0.0 ≤ β3 ≤ 1.0
+            return :Region3_liquid
         else
-            # could be Region 2b
-            T = Region2b_TPh(P, h)
-            if P ≤ Psat(623.15)
-                if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2b #, Region2(:SpecificH, P, T) # Return forward h for consistency check
-                end
-            elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2b #, Region2(:SpecificH, P, T) # Return forward h for consistency check
-            elseif P < 50 && Region5(:SpecificH, P, 1073.15) <= h <= Region5(:SpecificH, P, 2273.15)
-                return :Region5
-            else
-                throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
-            end
+            return :Region1
         end
     end
-    throw(DomainError((P, T), "Pressure/Temperature outside valid ranges."))
+
+    if phase == :vapour
+        #Region1 or Region3
+        if P <= 4.0
+            hmax = Region2(:SpecificH,P,1073.15)
+            β2a = (h - hv)/(hmax - hv)
+            0.0 ≤ β2a ≤ 1.0 && (return :Region2a)
+            throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+        end
+
+        if P > P_134
+            T23 = B23(:P,P)
+            h23 = Region2(:SpecificH,P,T23)
+            hx = h23 
+            β3 = (hv - h)/(hv - h23)
+            0.0 ≤ β3 ≤ 1.0 && (return :Region3_vapour)
+        else
+            hx = hv
+        end
+        
+        if P > 0.452_575_789_059_48E1
+            #check if P-S is in Region2c
+            hx2 = B2bc(:P,P)
+            β2c = (h - hx2)/(hx - hx2)
+            0.0 ≤ β2c ≤ 1.0 && (return :Region2c)
+        else
+            hx2 = hv
+        end
+        #check if P-S is in Region2b
+        hmax = Region2(:SpecificH,P,1073.15)
+        β2b = (h - hx2)/(hmax - hx2)
+        0.0 ≤ β2b ≤ 1.0 && (return :Region2b)
+        throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+    end
+
+    if phase == :supercritical
+        
+        #check if P-S is in Region1
+        smin = Region1(:SpecificS,P,273.15)
+        s < smin && throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+        s13 = Region1(:SpecificS,P,623.15)
+        β1 = (s - smin)/(s13 - smin)
+        0.0 ≤ β1 ≤ 1.0 && (return :Region1)
+        
+        #check if P-S is in region3
+        T23 = B23(:P,P)
+        s23 = Region2(:SpecificS,P,T23)
+        β3 = (s - s13)/(s23 - s13)
+        0.0 ≤ β3 ≤ 1.0 && (return :Region3_supercritical)
+        
+        #check if P-S is in region 2C
+        T2bc =  Region2b_TPh(P, B2bc(:P,P))
+        s2bc = Region2(:SpecificS,P,T2bc)
+        β2c = (s - s23)/(s2bc - s23)
+        0.0 ≤ β2c ≤ 1.0 && (return :Region2c)
+        #check if P-S is in region 2B
+        smax = Region2(:SpecificS,P,1073.15)
+        β2b = (s - s2bc)/(smax - s2bc)
+        0.0 ≤ β2b ≤ 1.0 && (return :Region2b)
+        
+        throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+    end
+
+    throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
 end
 
 
@@ -2372,63 +2287,151 @@ function RegionID_Ps(P, s)::Symbol
 
     # Check overall region first
     if P > 100
-        throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
+        throw(DomainError((P, s), "pressure over maximum (100 Mpa)."))
     end
 
-    T = Region1_TPs(P, s)
-    if 273.15 ≤ T ≤ 623.15
-        # could be Region 1
-        if P ≥ Psat(T)
-            #Region1 is only the liquid phase
-            slim = P <= P_134 ? SatSL(Region4(:P,P)) : Region1(:SpecificS, P,623.15)
-            if s <= slim
-                return :Region1 #, Region1(:SpecificH, P, T) # Return forward h for consistency check
-            end
-            return :Region1 #, Region1(:SpecificS, P, T) # Return forward s for consistency check
-        end
-    end
+    nan = NaN*one(P+s+1.0)
+    sl = nan
+    sv = nan
+    Ts = nan
 
-    if P ≤ 4.0
-        # could be Region 2a
-        T = Region2a_TPs(P, s)
-        if Tsat(P) ≤ T ≤ 1073.15
-            return :Region2a #, Region2(:SpecificS, P, T) # Return forward s for consistency check
-        else
-            throw(DomainError((P, s), "Pressure/entropy not in valid ranges.")) # Only other region with backwards mdoels for P ≤ 4.0 is Region 1, which is already eliminated
+    phase = :unknown
+    if P <= Pc
+        Ts = Region4(:P,P)
+        sl = SatSL(Ts)
+        sv = SatSV(Ts)
+        sl ≤ s ≤ sv && (return :Region4)
+        if s > sv
+            phase = :vapour
+        elseif s < sl
+            phase = :liquid
         end
     else
-        if s < 5.85
-            # could be Region 2c
-            T = Region2c_TPs(P, s)
-            if P ≤ Psat(623.15)
-                if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2 #c, Region2(:SpecificS, P, T) # Return forward s for consistency check
-                end
-            elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2c #, Region2(:SpecificS, P, T) # Return forward s for consistency check
-            elseif s <= Region3(:SpecificS, P, B23(:P, P))
-                return :Region3
-            else
-                throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
-            end
-        else
-            # could be Region 2b
-            T = Region2b_TPs(P, s)
-            if P ≤ Psat(623.15)
-                if Tsat(P) ≤ T ≤ 1073.15
-                    return :Region2b #, Region2(:SpecificS, P, T) # Return forward s for consistency check
-                end
-            elseif B23(:P, P) ≤ T ≤ 1073.15
-                return :Region2b #, Region2(:SpecificS, P, T) # Return forward s for consistency check
-            elseif P < 50 && Region5(:SpecificS, P, 1073.15) <= s <= Region5(:SpecificS, P, 2273.15)
-                return :Region5
-            else
-                throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
+        phase = :supercritical
+    end
 
-            end
+    if phase == :liquid
+        #Region1 or Region3
+        Region1_T = Region1_TPs(P, s)
+        if P <= P_134
+            273.15 ≤ Region1_T ≤ 620.15 && (return :Region1) #we are sure that we are inside region 1
+        end
+
+        s13 = Region1(:SpecificS,P,623.15)
+        β = (s13 - s)/(s13 - sl)
+        if 0.0 ≤ β ≤ 1.0
+            return :Region3_liquid
+        else
+            return :Region1
         end
     end
-    throw(DomainError((P, s), "Pressure/entropy not in valid ranges."))
+
+    if phase == :vapour
+        #Region1 or Region3
+        if P <= 4.0
+            smax = Region2(:SpecificS,P,1073.15)
+            β2a = (s - sv)/(smax - sv)
+            0.0 ≤ β2a ≤ 1.0 && (return :Region2a)
+            throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+        end
+
+        if P > P_134
+            T23 = B23(:P,P)
+            s23 = Region2(:SpecificS,P,T23)
+            sx = s23 
+            β3 = (sv - s)/(sv - s23)
+            0.0 ≤ β3 ≤ 1.0 && (return :Region3_vapour)
+        else
+            sx = sv
+        end
+        
+        if P > 0.452_575_789_059_48E1
+            #check if P-S is in Region2c
+            T2bc = Region2b_TPh(P, B2bc(:P,P))
+            sx2 = Region2(:SpecificS,P,T2bc)
+            β2c = (s - sx2)/(sx - sx2)
+            0.0 ≤ β2c ≤ 1.0 && (return :Region2c)
+        else
+            sx2 = sv
+        end
+        #check if P-S is in Region2b
+        smax = Region2(:SpecificS,P,1073.15)
+        β2b = (s - sx2)/(smax - sx2)
+        0.0 ≤ β2b ≤ 1.0 && (return :Region2b)
+        throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+    end
+
+    if phase == :supercritical
+        
+        #check if P-S is in Region1
+        smin = Region1(:SpecificS,P,273.15)
+        s < smin && throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+        s13 = Region1(:SpecificS,P,623.15)
+        β1 = (s - smin)/(s13 - smin)
+        0.0 ≤ β1 ≤ 1.0 && (return :Region1)
+        
+        #check if P-S is in region3
+        T23 = B23(:P,P)
+        s23 = Region2(:SpecificS,P,T23)
+        β3 = (s - s13)/(s23 - s13)
+        0.0 ≤ β3 ≤ 1.0 && (return :Region3_supercritical)
+        
+        #check if P-S is in region 2C
+        T2bc =  Region2b_TPh(P, B2bc(:P,P))
+        s2bc = Region2(:SpecificS,P,T2bc)
+        β2c = (s - s23)/(s2bc - s23)
+        0.0 ≤ β2c ≤ 1.0 && (return :Region2c)
+        #check if P-S is in region 2B
+        smax = Region2(:SpecificS,P,1073.15)
+        β2b = (s - s2bc)/(smax - s2bc)
+        0.0 ≤ β2b ≤ 1.0 && (return :Region2b)
+        
+        throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+    end
+
+    throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+end
+
+function ps_id(p,s)
+    try
+        RegionID_Ps(p,s)
+    catch
+        if p <= Pc
+        T_sat = Tsat(p)
+        S_L = SatSL(T_sat)
+        S_V = SatSV(T_sat)
+        if (s < S_L || s > S_V)
+        #    println("p = ",p, " Pc = ", Pc, " T_sat = ",T_sat)
+        return :sat
+        end
+    end
+        return :fail
+    end
+end
+
+function my_H_ps(p,s)
+  tmp = missing
+  try
+    tmp = SpecificH_Ps(p,s)
+  catch
+    # Set residual two-phase region to -1000, so it is visible
+    if (p > Pc)
+      return missing
+    end
+  end
+  if !ismissing(tmp)
+    return tmp
+  end
+  T_sat = Tsat(p)
+  S_L = SatSL(T_sat)
+  S_V = SatSV(T_sat)
+  if (s < S_L || s > S_V)
+#    println("p = ",p, " Pc = ", Pc, " T_sat = ",T_sat)
+    return missing
+  end
+  return -4000.0
+
+  return tmp
 end
 
 
@@ -2468,7 +2471,7 @@ function ∂Psat∂T(T)
          -15.96187190000,
            1.80122502000
         )
-    θ = T/Tc 
+    θ = T/Tc
     τ = 1 - θ
     ∂τ = - 1/Tc
     ∂T = one(T)
@@ -2564,7 +2567,7 @@ function property_PT(property::Symbol,Region::Symbol,P,T)
         return Region1(property, P, T)
     elseif Region == :Region2a || Region == :Region2b || Region == :Region2c || Region == :Region2
         return Region2(property, P, T)
-    elseif Region == :Region3
+    elseif Region == :Region3 || Region == :Region3_vapour || Region == :Region3_supercritical || Region == :Region3_liquid
         return Region3(property, P, T)
     elseif Region == :Region5
         return Region5(property, P, T)
@@ -2588,14 +2591,9 @@ end
 
 
 function SpecificG(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-        T = 1.0*uconvert(u"K", T)
-        Region = RegionID(P.val, T.val)
-        return property_PT(:SpecificG,Region,P.val,T.val)*u"kJ/kg"
-    catch
-        throw(UnitsError((P,T), "Invalid input units."))
-    end
+    _P,_T = pt_unwrap_units(P,T)
+    Region = RegionID(_P,_T)
+    return property_PT(:SpecificG,Region,_P,_T)*u"kJ/kg"
 end
 
 """
@@ -2621,17 +2619,19 @@ function _Temperature_Ph(Region::Symbol, P, h)
         return Region2b_TPh(P, h)
     elseif Region == :Region2c
         return Region2c_TPh(P, h)
-    elseif Region == :Region3
-        return Region3_TPh(P, h)
+    elseif Region == :Region3 || Region == :Region3_liquid || Region == :Region3_liquid || Region == :Region3_vapour
+        return Region3_TPh(P, h, Region)
     elseif Region == :Region5
         return Region5_TPh(P, h)
+    elseif Region == :Region4
+        return Tsat(P)
     else
         throw(DomainError(Region, "Invalid Region"))
     end
 end
 
 """
-    Temperature_Ph(P, h)
+    Temperature_Ps(P, s)
 
     Utility function that returns the Temperature [K] from P [MPa] and s [kJ/kg/K]
     The explicit backwards equations are only available in regions 1 and 2. For Region 3 and 5 there is an implicit solver that may fail. Input outside these
@@ -2653,15 +2653,16 @@ function _Temperature_Ps(Region::Symbol, P, s)
         return Region2b_TPs(P, s)
     elseif Region == :Region2c
         return Region2c_TPs(P, s)
-    elseif Region == :Region3
-        return Region3_TPs(P, s)
+    elseif Region == :Region3 || Region == :Region3_liquid || Region == :Region3_vapour || Region == :Region3_supercritical
+        return Region3_TPs(P, s, Region)
     elseif Region == :Region5
         return Region5_TPs(P, s)
+    elseif Region == :Region4
+        return Tsat(P)
     else
         throw(DomainError(Region, "Invalid Region"))
     end
 end
-
 
 """
     SpecificG_Ph
@@ -2680,20 +2681,8 @@ end
 
 
 function SpecificG_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpecificG,Region,P.val,T)*u"kJ/kg"
+    _P,_h = ph_unwrap_units(P,h)
+    return SpecificG_Ph(_P,_h)*u"kJ/kg"
 end
 
 
@@ -2709,52 +2698,15 @@ end
 """
 function SpecificG_Ps(P, s)
     Region = RegionID_Ps(P, s)
-
-    if Region == :Region1
-        T = Region1_TPs(P, s)
-        return Region1(:SpecificG, P, T)
-    elseif Region == :Region2a
-        T = Region2a_TPs(P, s)
-        return Region2(:SpecificG, P, T)
-    elseif Region == :Region2b
-        T = Region2b_TPs(P, s)
-        return Region2(:SpecificG, P, T)
-    elseif Region == :Region2c
-        T = Region2c_TPs(P, s)
-        return Region2(:SpecificG, P, T)
-    end
+    T = _Temperature_Ps(Region, P, s)
+    return property_PT(:SpecificG,Region,P,T)
 end
 
 
 function SpecificG_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-
-    if Region == :Region1
-        T = Region1_TPs(P.val, s.val)
-        return Region1(:SpecificG, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2a
-        T = Region2a_TPs(P.val, s.val)
-        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2b
-        T = Region2b_TPs(P.val, s.val)
-        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
-    elseif Region == :Region2c
-        T = Region2c_TPs(P.val, s.val)
-        return Region2(:SpecificG, P.val, T)*u"kJ/kg"
-    end
+    _P,_s = ps_unwrap_units(P,s)
+    return SpecificG_Ps(_P,_s)*u"kJ/kg"
 end
-
 
 """
     SpecificF
@@ -2766,42 +2718,11 @@ end
 """
 function SpecificF(P, T)
     Region = RegionID(P, T)
-
-    if Region == :Region1
-        return Region1(:SpecificF, P, T)
-    elseif Region == :Region2
-        return Region2(:SpecificF, P, T)
-    elseif Region == :Region3
-        return Region3(:SpecificF, P, T)
-    elseif Region == :Region5
-        return Region5(:SpecificF, P, T)
-    end
+    return property_PT(:SpecificF,Region,P,T)
 end
 
-
 function SpecificF(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-
-    if Region == :Region1
-        return Region1(:SpecificF, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region2
-        return Region2(:SpecificF, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region3
-        return Region3(:SpecificF, P.val, T.val)*u"kJ/kg"
-    elseif Region == :Region5
-        return Region5(:SpecificF, P.val, T.val)*u"kJ/kg"
-    end
+    
 end
 
 
