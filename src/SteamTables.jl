@@ -2231,7 +2231,7 @@ function RegionID_Ph(P, h)::Symbol
         β2c = (h - h23)/(h2bc - h23)
         0.0 ≤ β2c ≤ 1.0 && (return :Region2c)
         #check if P-S is in region 2B
-        hmax = Region2(:SpecificH,1073.15)
+        hmax = Region2(:SpecificH,P,1073.15)
         β2b = (h - h2bc)/(hmax - h2bc)
         0.0 ≤ β2b ≤ 1.0 && (return :Region2b)
         

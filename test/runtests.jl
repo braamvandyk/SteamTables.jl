@@ -1,5 +1,6 @@
 using SteamTables
 using Unitful
+using Unitful: @u_str
 using Test
 
 mysignif(x, n) = round(x; sigdigits = n)
