@@ -130,7 +130,8 @@ function itp_find_zero(f::F,xa,xb;tol = 0.5e-12,max_iters = 100) where F
     nmax = nmid + n0
     for i in 0:max_iters
         xa,xb,ya,yb = itp_step(f::F,xa,xb,ya,yb,tol,κ₁,κ₂,i,nmid,nmax)
-        if xb - xa <= 2*tol
+        
+        if abs(xb - xa) <= 2*tol
             return 0.5*(xa+xb)
         end
     end
@@ -1199,24 +1200,22 @@ end
     Returns T [K] from P[MPa] and h[kJ/kg] in Region 3.
     Pressures in MPa and temperature in [K]
 """
-function Region3_TPh(P, h)
-    Tlow = 623.15
-    Thigh = B23(:P, P)
-    if P_134 <= P <= Pc
-        #we are in the saturation boundary
-        Tsat = Tsat(P)
-        hl,hv = SatHL(Tsat),SatHV(Tsat)
-        if hl <= h <= hv
-            return Tsat
-        elseif h > hv #gas phase, interpolate with h(T_high)
-            Tlow = Tsat
-        elseif h < hl #liquid phase, interpolate with h(T_low)
-            Thigh = Tsat
-        end
-    end #22.064 < p <= 100
-    f(T) = Region3(:SpecificH, P, T) - h
-    T = itp_find_zero(f,Tlow, Thigh)
-    isnan(T) && throw(error("Region3_TPh: temperature iterations failed to converge."))
+function Region3_TPh(P, h, symbol::Symbol)
+    T13 = 623.15*one(P)
+    if symbol == :Region3_liquid
+        Tmin = T13
+        Tmax = Tsat(P)
+    elseif symbol == :Region3_vapour
+        Tmin = Tsat(P)
+        Tmax = B23(:P, P)
+    else
+        Tmin = T13
+        Tmax = B23(:P, P)
+    end
+    f(t) = Region3(:SpecificH, P, 1/t) - h
+    t = itp_find_zero(f,1/Tmin, 1/Tmax)
+    T = 1/t
+    isnan(T) && throw(error("Region3_TPs: temperature iterations failed to converge."))
     return T
 end
 
@@ -2585,7 +2584,7 @@ function _Temperature_Ph(Region::Symbol, P, h)
         return Region2b_TPh(P, h)
     elseif Region == :Region2c
         return Region2c_TPh(P, h)
-    elseif Region == :Region3 || Region == :Region3_liquid || Region == :Region3_liquid || Region == :Region3_vapour
+    elseif Region == :Region3 || Region == :Region3_liquid || Region == :Region3_liquid || Region == :Region3_vapour || Region == :Region3_supercritical
         return Region3_TPh(P, h, Region)
     elseif Region == :Region5
         return Region5_TPh(P, h)
