@@ -67,7 +67,6 @@ Temperatures in K, Pressures in MPa
 
 Name |Value      |Units   |Physical Constant
 -----|-----------|--------|-------------------
-R    |0.461526   |kJ/kg/K |Universal gas constant
 Tc   |647.096    |K       |Critical temperature of water
 Pc   |22.064     |kg/m3   |Critical density of water
 T3   |273.16     |K       |Triple point temperature of water

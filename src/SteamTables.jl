@@ -79,6 +79,7 @@ const T3 = 273.16       #K          Triple point temperature of water
 const P3 = 611.657E-6   #MPa        Triple point pressure of water
 const Mr = 18.01528     #kg/kmol    Molecular weight of water
 const P_134 = 16.529164252604478 #intersection between region 1, 3 and 4. at T = 623.15
+
 export Psat, Tsat,
        SatDensL, SatDensV,
        SatHL, SatHV, SatSL, SatSV,
@@ -90,46 +91,8 @@ export Psat, Tsat,
        SpecificCP_Ph, SpecificCV_Ph, SpeedOfSound_Ph, Temperature_Ph,
        SpecificG_Ps,  SpecificF_Ps,  SpecificV_Ps, SpecificU_Ps, SpecificH_Ps,
        SpecificCP_Ps, SpecificCV_Ps, SpeedOfSound_Ps, Temperature_Ps,
-       R, Tc, Pc, ρc, T3, P3, Mr
+       Tc, Pc, ρc, T3, P3, Mr
 
-using Unitful
-
-
-struct UnitsError <: Exception
-    var
-    message::String
-end
-Base.showerror(io::IO, e::UnitsError) = print(io, "UnitsError with ",e.var, ": ", e.message)
-
-function pt_unwrap_units(P::Quantity,T::Quantity)
-    try
-        _P = 1.0*uconvert(u"MPa", P)
-        _T = 1.0*uconvert(u"kJ/kg", T)
-        return _P.val,_T.val
-    catch
-        throw(UnitsError((P,T), "Invalid input units."))
-    end
-end
-
-function ph_unwrap_units(P::Quantity,h::Quantity)
-    try
-        _P = 1.0*uconvert(u"MPa", P)
-        _h = 1.0*uconvert(u"kJ/kg", h)
-        return _P.val,_h.val
-    catch
-        throw(UnitsError((P,T), "Invalid input units."))
-    end
-end
-
-function ps_unwrap_units(P::Quantity,s::Quantity)
-    try
-        _P = 1.0*uconvert(u"MPa", P)
-        _s = 1.0*uconvert(u"kJ/kg/K", s)
-        return _P.val,_h.val
-    catch
-        throw(UnitsError((P,T), "Invalid input units."))
-    end
-end
 
 #ITP: interpolate-truncate-project.
 #https://en.wikipedia.org/wiki/ITP_method
@@ -156,6 +119,7 @@ function itp_step(f::F,xa,xb,ya,yb,ϵ,κ₁,κ₂,j,nmid,nmax) where F
     end
     return xa,xb,ya,yb
 end
+
 
 function itp_find_zero(f::F,xa,xb;tol = 0.5e-12,max_iters = 100) where F
     κ₁,κ₂ = 0.2,2.0
@@ -218,6 +182,7 @@ function B2bc(InputType::Symbol, InputValue)
         throw(DomainError(InputType, "Unknown input. Expecting :P or :h."))
     end
 end
+
 
 """
     Region1
@@ -380,6 +345,7 @@ function Region1(Output::Symbol, P, T)
     end
 end
 
+
 """
     Region1_TPh
 
@@ -458,6 +424,7 @@ function Region1_TPh(P, h)
     return sum(n[i]*P^I[i]*(η+1)^J[i] for i=1:20)
 end
 
+
 """
     Region1_TPs
 
@@ -532,6 +499,7 @@ function Region1_TPs(P, s)
 
     return sum(n[i]*P^I[i]*(s+2)^J[i] for i=1:20)
 end
+
 
 """
     Region2
@@ -750,6 +718,7 @@ function Region2(Output::Symbol, P, T)
     end
 end
 
+
 """
     Region2meta
 
@@ -876,6 +845,7 @@ function Region2meta(Output::Symbol, P, T)
     end
 end
 
+
 """
     Region2a_TPh
 
@@ -886,7 +856,7 @@ function Region2a_TPh(P, h)
     hstar = 2000.0
     Pstar = 1.0
 
-    n = [0.108_989_523_182_88E4,
+    n = (0.108_989_523_182_88E4,
          0.849_516_544_955_35E3,
         -0.107_817_480_918_26E3,
          0.331_536_548_012_63E2,
@@ -919,9 +889,9 @@ function Region2a_TPh(P, h)
          0.371_540_859_962_33E7,
          0.191_277_292_396_60E5,
         -0.415_351_648_356_34E6,
-        -0.624_598_551_925_07E2]
+        -0.624_598_551_925_07E2)
 
-    I = [0,
+    I = (0,
          0,
          0,
          0,
@@ -954,9 +924,9 @@ function Region2a_TPh(P, h)
          5,
          6,
          6,
-         7]
+         7)
 
-    J = [0,
+    J = (0,
          1,
          2,
          3,
@@ -989,13 +959,14 @@ function Region2a_TPh(P, h)
          42,
          34,
          44,
-         28]
+         28)
 
     π = P / Pstar
     ηη = h / hstar - 2.1
 
     return sum(n[i]*π^I[i]*ηη^J[i] for i=1:34)
 end
+
 
 """
     Region2b_TPh
@@ -1007,7 +978,7 @@ function Region2b_TPh(P, h)
     hstar = 2000.0
     Pstar = 1.0
 
-    n = [0.148_950_410_795_16E4,
+    n = (0.148_950_410_795_16E4,
          0.743_077_983_140_34E3,
         -0.977_083_187_978_37E2,
          0.247_424_647_056_74E1,
@@ -1044,9 +1015,9 @@ function Region2b_TPh(P, h)
         -0.814_563_652_078_33E-13,
         -0.251_805_456_829_62E-10,
         -0.175_652_339_694_07E-17,
-         0.869_341_563_441_63E-14]
+         0.869_341_563_441_63E-14)
 
-    I = [0,
+    I = (0,
          0,
          0,
          0,
@@ -1083,9 +1054,9 @@ function Region2b_TPh(P, h)
          7,
          7,
          9,
-         9]
+         9)
 
-    J = [0,
+    J = (0,
          1,
          2,
          12,
@@ -1122,13 +1093,14 @@ function Region2b_TPh(P, h)
          2,
          28,
          1,
-         40]
+         40)
 
     ππ = P / Pstar - 2
     ηη = h / hstar - 2.6
 
     return sum(n[i]*ππ^I[i]*ηη^J[i] for i=1:38)
 end
+
 
 """
     Region2c_TPh
@@ -1140,7 +1112,7 @@ function Region2c_TPh(P, h)
     hstar = 2000.0
     Pstar = 1.0
 
-    n = [-0.323_683_985_552_42E13,
+    n = (-0.323_683_985_552_42E13,
           0.732_633_509_021_81E13,
           0.358_250_899_454_47E12,
          -0.583_401_318_515_90E12,
@@ -1162,9 +1134,9 @@ function Region2c_TPh(P, h)
          -0.116_069_211_309_84E-5,
           0.278_463_670_885_54E-4,
          -0.592_700_384_741_76E-3,
-          0.129_185_829_918_78E-2]
+          0.129_185_829_918_78E-2)
 
-    I = [-7,
+    I = (-7,
          -7,
          -6,
          -6,
@@ -1186,9 +1158,9 @@ function Region2c_TPh(P, h)
           6,
           6,
           6,
-          6]
+          6)
 
-    J = [0,
+    J = (0,
          4,
          0,
          2,
@@ -1210,13 +1182,14 @@ function Region2c_TPh(P, h)
          12,
          16,
          20,
-         22]
+         22)
 
     ππ = P / Pstar + 25
     ηη = h / hstar - 1.8
 
     return sum(n[i]*ππ^I[i]*ηη^J[i] for i=1:23)
 end
+
 
 """
     Region3_TPh
@@ -1245,6 +1218,7 @@ function Region3_TPh(P, h)
     return T
 end
 
+
 """
     Region3_TPs
 
@@ -1270,6 +1244,7 @@ function Region3_TPs(P, s, symbol::Symbol)
     return T
 end
 
+
 """
     Region2a_TPs
 
@@ -1280,7 +1255,7 @@ function Region2a_TPs(P, s)
     sstar = 2.0
     Pstar = 1.0
 
-    n = [-0.392_359_838_619_84E6,
+    n = (-0.392_359_838_619_84E6,
           0.515_265_738_272_70E6,
           0.404_824_431_610_48E5,
          -0.321_937_909_239_02E3,
@@ -1325,9 +1300,9 @@ function Region2a_TPs(P, s)
           0.210_375_278_936_19,
           0.256_812_397_299_99E-3,
          -0.127_990_029_337_81E-1,
-         -0.821_981_026_520_18E-5]
+         -0.821_981_026_520_18E-5)
 
-    I = [-1.5,
+    I = (-1.5,
          -1.5,
          -1.5,
          -1.5,
@@ -1372,9 +1347,9 @@ function Region2a_TPs(P, s)
          1.25,
          1.25,
          1.5,
-         1.5]
+         1.5)
 
-    J = [-24,
+    J = (-24,
          -23,
          -19,
          -13,
@@ -1419,13 +1394,14 @@ function Region2a_TPs(P, s)
          3,
          15,
          5,
-         18]
+         18)
 
     π = P / Pstar
     σσ = s / sstar - 2.0
 
     return sum(n[i]*π^I[i]*σσ^J[i] for i=1:46)
 end
+
 
 """
     Region2b_TPs
@@ -1437,7 +1413,7 @@ function Region2b_TPs(P, s)
     sstar = 0.7853
     Pstar = 1.0
 
-    n = [0.316_876_650_834_97E6,
+    n = (0.316_876_650_834_97E6,
          0.208_641_758_818_58E2,
         -0.398_593_998_035_99E6,
         -0.218_160_585_188_77E2,
@@ -1480,9 +1456,9 @@ function Region2b_TPs(P, s)
          0.564_208_572_672_69E-5,
          0.412_861_500_746_05E-7,
         -0.206_846_711_188_24E-7,
-         0.164_093_936_747_25E-8]
+         0.164_093_936_747_25E-8)
 
-    I = [-6,
+    I = (-6,
          -6,
          -5,
          -5,
@@ -1525,9 +1501,9 @@ function Region2b_TPs(P, s)
           4,
           5,
           5,
-          5]
+          5)
 
-    J = [0,
+    J = (0,
          11,
          0,
          11,
@@ -1570,13 +1546,14 @@ function Region2b_TPs(P, s)
          1,
          0,
          1,
-         2]
+         2)
 
     π = P / Pstar
     σσ = 10.0 - s / sstar
 
     return sum(n[i]*π^I[i]*σσ^J[i] for i=1:44)
 end
+
 
 """
     Region2c_TPs
@@ -1588,7 +1565,7 @@ function Region2c_TPs(P, s)
     sstar = 2.9251
     Pstar = 1.0
 
-    n = [0.909_685_010_053_65E3,
+    n = (0.909_685_010_053_65E3,
          0.240_456_670_884_20E4,
         -0.591_623_263_871_30E3,
          0.541_454_041_280_74E3,
@@ -1617,9 +1594,9 @@ function Region2c_TPs(P, s)
         -0.206_778_701_051_64E-10,
         -0.208_742_781_818_86E-10,
          0.101_621_668_250_89E-9,
-        -0.164_298_282_813_47E-9]
+        -0.164_298_282_813_47E-9)
 
-    I = [-2,
+    I = (-2,
          -2,
          -1,
           0,
@@ -1648,9 +1625,9 @@ function Region2c_TPs(P, s)
           7,
           7,
           7,
-          7]
+          7)
 
-    J = [0,
+    J = (0,
          1,
          0,
          0,
@@ -1679,7 +1656,7 @@ function Region2c_TPs(P, s)
          1,
          3,
          4,
-         5]
+         5)
 
     π = P / Pstar
     σσ = 2.0 - s / sstar
@@ -1877,6 +1854,7 @@ function Region3_ρ(Output::Symbol, ρ, T)
     end
 end
 
+
 """
     Initialise from ideal gas law, then use root finder to calculate P by iterating on Region3ρ.
     Pass through properties from Region3_ρ
@@ -1891,6 +1869,7 @@ function Region3(Output::Symbol, P, T)
     end
 end
 
+
 """
     Region3_ρmax(T)
 
@@ -1902,6 +1881,7 @@ function Region3_ρmax(T)
     #with a margin of error of 4, all points of the approximation generate a higher density than the true density at 100mPa, so the boundary is bounded.
     return evalpoly(1/T,poly) + 4
 end
+
 
 function Region3_ρPT(P,T)
     if T <= Tc #we are inside saturation. use the saturation volume as initial guess
@@ -1964,6 +1944,7 @@ function Region4(InputType::Symbol, InputValue)
         throw(DomainError(InputType, "Unknown input. Expecting :T or :P"))
     end
 end
+
 
 """
     Region5
@@ -2062,6 +2043,7 @@ function Region5(Output::Symbol, P, T)
     end
 end
 
+
 function Region5_TPh(P, h)
     Tlow,Thigh = 1073.15,2273.15
     f(T) = Region5(:SpecificH, P, T) - h
@@ -2069,6 +2051,7 @@ function Region5_TPh(P, h)
     isnan(T) && throw(error("Region5_TPh: temperature iterations failed to converge."))
     return T
 end
+
 
 function Region5_TPs(P, s)
     Tlow,Thigh = 1073.15,2273.15
@@ -2078,13 +2061,13 @@ function Region5_TPs(P, s)
     return T
 end
 
+
 """
     RegionID
 
     Identifies the applicable region, based on specified T and P.
     This allows the correct function to be called to retrieve properties.
 """
-
 function RegionID(P, T)::Symbol
     #=
     Region 1:
@@ -2136,6 +2119,7 @@ function RegionID(P, T)::Symbol
     end
 end
 
+
 """
     RegionID_Ph
 
@@ -2152,10 +2136,10 @@ function RegionID_Ph(P, h)::Symbol
 
     # Check overall region first
     if P > 100
-        throw(DomainError((P, s), "pressure over maximum (100 Mpa)."))
+        throw(DomainError((P, h), "pressure over maximum (100 Mpa)."))
     end
 
-    nan = NaN*one(P+s+1.0)
+    nan = NaN*one(P+h+1.0)
     hl = nan
     hv = nan
     Ts = nan
@@ -2197,7 +2181,7 @@ function RegionID_Ph(P, h)::Symbol
             hmax = Region2(:SpecificH,P,1073.15)
             β2a = (h - hv)/(hmax - hv)
             0.0 ≤ β2a ≤ 1.0 && (return :Region2a)
-            throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+            throw(DomainError((P, h), "Pressure/enthalpy combination outside valid ranges."))
         end
 
         if P > P_134
@@ -2222,38 +2206,37 @@ function RegionID_Ph(P, h)::Symbol
         hmax = Region2(:SpecificH,P,1073.15)
         β2b = (h - hx2)/(hmax - hx2)
         0.0 ≤ β2b ≤ 1.0 && (return :Region2b)
-        throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+        throw(DomainError((P, h), "Pressure/enthalpy combination outside valid ranges."))
     end
 
     if phase == :supercritical
         
         #check if P-S is in Region1
-        smin = Region1(:SpecificS,P,273.15)
-        s < smin && throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
-        s13 = Region1(:SpecificS,P,623.15)
-        β1 = (s - smin)/(s13 - smin)
+        hmin = Region1(:SpecificH,P,273.15)
+        h < hmin && throw(DomainError((P, h), "Pressure/enthalpy combination outside valid ranges."))
+        h13 = Region1(:SpecificH,P,623.15)
+        β1 = (h - hmin)/(h13 - hmin)
         0.0 ≤ β1 ≤ 1.0 && (return :Region1)
         
         #check if P-S is in region3
         T23 = B23(:P,P)
-        s23 = Region2(:SpecificS,P,T23)
-        β3 = (s - s13)/(s23 - s13)
+        h23 = Region2(:SpecificH,P,T23)
+        β3 = (h - h13)/(h23 - h13)
         0.0 ≤ β3 ≤ 1.0 && (return :Region3_supercritical)
         
         #check if P-S is in region 2C
-        T2bc =  Region2b_TPh(P, B2bc(:P,P))
-        s2bc = Region2(:SpecificS,P,T2bc)
-        β2c = (s - s23)/(s2bc - s23)
+        h2bc = B2bc(:P,P)
+        β2c = (h - h23)/(h2bc - h23)
         0.0 ≤ β2c ≤ 1.0 && (return :Region2c)
         #check if P-S is in region 2B
-        smax = Region2(:SpecificS,P,1073.15)
-        β2b = (s - s2bc)/(smax - s2bc)
+        hmax = Region2(:SpecificH,1073.15)
+        β2b = (h - h2bc)/(hmax - h2bc)
         0.0 ≤ β2b ≤ 1.0 && (return :Region2b)
         
-        throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+        throw(DomainError((P, h), "Pressure/enthalpy combination outside valid ranges."))
     end
 
-    throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
+    throw(DomainError((P, h), "Pressure/enthalpy combination outside valid ranges."))
 end
 
 
@@ -2392,6 +2375,7 @@ function RegionID_Ps(P, s)::Symbol
     throw(DomainError((P, s), "Pressure/entropy combination outside valid ranges."))
 end
 
+
 function ps_id(p,s)
     try
         RegionID_Ps(p,s)
@@ -2408,6 +2392,7 @@ function ps_id(p,s)
         return :fail
     end
 end
+
 
 function my_H_ps(p,s)
   tmp = missing
@@ -2463,6 +2448,7 @@ function Psat2(T)
                       + a[5]*τ^4 + a[6]*τ^7.5))
 end
 
+
 function ∂Psat∂T(T)
     a = ( -7.85951783000,
            1.84408259000,
@@ -2493,6 +2479,31 @@ function ∂Psat∂T(T)
 end
 
 
+macro func_def(f)
+    f_Ps = Symbol(f, :_Ps)
+    f_Ph = Symbol(f, :_Ph)
+    ff = Symbol(f)
+    quote
+        function $f(P, T)
+            Region = RegionID(P, T)
+            return property_PT($(QuoteNode(f)), Region, P, T)
+        end
+
+        function $f_Ph(P, h)
+            Region = RegionID_Ph(P, h)
+            T = _Temperature_Ph(Region, P, h)
+            return property_PT($(QuoteNode(f)), Region, P, T)
+        end
+
+        function $f_Ps(P, s)
+            Region = RegionID_Ps(P, s)
+            T = _Temperature_Ps(Region, P, s)
+            return property_PT($(QuoteNode(f)), Region, P, T)
+        end
+    end |> esc
+end
+
+
 #============================================================================
 =============================================================================
                             Exported functions:
@@ -2517,21 +2528,6 @@ function Psat(T)
 end
 
 
-function Psat(T::Q) where Q <: Quantity
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    if T3 ≤ T.val ≤ Tc
-        return Region4(:T, T.val)*u"MPa"
-    else
-        throw(DomainError(T, "Temperature not between triple and critical points."))
-    end
-end
-
-
 """
     Tsat
 
@@ -2548,20 +2544,6 @@ function Tsat(P)
 end
 
 
-function Tsat(P::Q) where Q <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-
-    if 0.611_213E-3 ≤ P.val ≤ Pc
-        return Region4(:P, P.val)*u"K"
-    else
-        throw(DomainError(P, "Pressure not between triple and critical points"))
-    end
-end
-
 function property_PT(property::Symbol,Region::Symbol,P,T)
     if Region == :Region1
         return Region1(property, P, T)
@@ -2576,25 +2558,6 @@ function property_PT(property::Symbol,Region::Symbol,P,T)
     end
 end
 
-"""
-    SpecificG
-
-    Utility function that returns the Gibbs free energy [kJ/kgK] from P [MPa]
-    and T [K].
-    If inputs have associated units, the value is returned with associated
-    units of kJ/kg via Uniful.jl.
-"""
-function SpecificG(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificG,Region,P,T)
-end
-
-
-function SpecificG(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    _P,_T = pt_unwrap_units(P,T)
-    Region = RegionID(_P,_T)
-    return property_PT(:SpecificG,Region,_P,_T)*u"kJ/kg"
-end
 
 """
     Temperature_Ph(P, h)
@@ -2609,6 +2572,7 @@ function Temperature_Ph(P, h)
     Region = RegionID_Ph(P, h)
     return _Temperature_Ph(Region, P, h)
 end
+
 
 function _Temperature_Ph(Region::Symbol, P, h)
     if Region == :Region1
@@ -2630,6 +2594,7 @@ function _Temperature_Ph(Region::Symbol, P, h)
     end
 end
 
+
 """
     Temperature_Ps(P, s)
 
@@ -2643,6 +2608,7 @@ function Temperature_Ps(P, s)
     Region = RegionID_Ps(P, s)
     return _Temperature_Ps(Region, P, s)
 end
+
 
 function _Temperature_Ps(Region::Symbol, P, s)
     if Region == :Region1
@@ -2664,6 +2630,15 @@ function _Temperature_Ps(Region::Symbol, P, s)
     end
 end
 
+
+"""
+    SpecificG
+
+    Utility function that returns the Gibbs free energy [kJ/kgK] from P [MPa] and T [K].
+    If inputs have associated units, the value is returned with associated
+    units of kJ/kg via Uniful.jl.
+"""
+function SpecificG end
 """
     SpecificG_Ph
 
@@ -2673,17 +2648,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificG_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpecificG,Region,P,T)
-end
-
-
-function SpecificG_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    _P,_h = ph_unwrap_units(P,h)
-    return SpecificG_Ph(_P,_h)*u"kJ/kg"
-end
+function SpecificG_Ph end
 
 
 """
@@ -2696,17 +2661,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificG_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpecificG,Region,P,T)
-end
+function SpecificG_Ps end
 
-
-function SpecificG_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    _P,_s = ps_unwrap_units(P,s)
-    return SpecificG_Ps(_P,_s)*u"kJ/kg"
-end
+@func_def SpecificG
 
 """
     SpecificF
@@ -2716,14 +2673,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificF(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificF,Region,P,T)
-end
-
-function SpecificF(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    
-end
+function SpecificF end
 
 
 """
@@ -2736,28 +2686,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificF_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpecificF, Region, P, T)
-end
-
-function SpecificF_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpecificF, Region, P.val, T)*u"kJ/kg"
-end
+function SpecificF_Ph end
 
 
 """
@@ -2770,30 +2699,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificF_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpecificF, Region, P, T)
-end
+function SpecificF_Ps end
 
-
-function SpecificF_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(s, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-    T = _Temperature_Ps(Region, P.val, s.val)
-    return property_PT(:SpecificF, Region, P.val, T)*u"kJ/kg"
-end
-
+@func_def SpecificF
 
 """
     SpecificV
@@ -2802,27 +2710,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of m3/kg via Uniful.jl.
 """
-function SpecificV(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificV, Region, P, T)
-end
-
-
-function SpecificV(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-    return property_PT(:SpecificV, Region, P.val, T.val)*u"m^3/kg"
-end
+function SpecificV end
 
 
 """
@@ -2834,29 +2722,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of m3/kg via Uniful.jl.
 """
-function SpecificV_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpecificV, Region, P, T)
-end
-
-
-function SpecificV_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpecificV, Region, P.val, T)*u"m^3/kg"
-end
+function SpecificV_Ph end
 
 
 """
@@ -2869,29 +2735,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of m3/kg via Uniful.jl.
 """
-function SpecificV_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpecificV, Region, P, T)
-end
+function SpecificV_Ps end
 
-
-function SpecificV_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(s, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-    T = _Temperature_Ps(Region, P.val, s.val)
-    return property_PT(:SpecificV, Region, P.val, T)*u"m^3/kg"
-end
+@func_def SpecificV
 
 
 """
@@ -2902,27 +2748,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificU(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificU, Region, P, T)
-end
-
-
-function SpecificU(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-    return property_PT(:SpecificU, Region, P.val, T.val)*u"kJ/kg"
-end
+function SpecificU end
 
 
 """
@@ -2935,29 +2761,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificU_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpecificU, Region, P, T)
-end
-
-
-function SpecificU_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpecificU, Region, P.val, T)*u"kJ/kg"
-end
+function SpecificU_Ph end
 
 
 """
@@ -2970,29 +2774,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kg via Uniful.jl.
 """
-function SpecificU_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpecificU, Region, P, T)
-end
+function SpecificU_Ps end
 
-
-function SpecificU_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(s, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-    T = _Temperature_Ps(Region, P.val, s.val)
-    return property_PT(:SpecificU, Region, P.val, T)*u"kJ/kg"
-end
+@func_def SpecificU
 
 
 """
@@ -3003,27 +2787,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificS(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificS, Region, P, T)
-end
-
-
-function SpecificS(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-    return property_PT(:SpecificS, Region, P.val, T.val)*u"kJ/kg/K"
-end
+function SpecificS end
 
 
 """
@@ -3036,29 +2800,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificS_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpecificS, Region, P, T)
-end
+function SpecificS_Ph end
 
-
-function SpecificS_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpecificS, Region, P.val, T)*u"kJ/kg/K"
-end
+@func_def SpecificS
 
 
 """
@@ -3066,35 +2810,13 @@ end
 
     Utility function that returns the specific enthalpy [kJ/kg] from P [MPa]
     and T [K].
-    If inputs have associated units, the value is returned with associated
-    units of kJ/kg via Uniful.jl.
+    If inputs have associated units, the value is returned with associated units of kJ/kg via Uniful.jl.
 
-    Note: Do not use this function to attempt to find values on the saturation
-    line, as any rounding errors anywhere will result in a point on either side
-    of the phase boundary with large differences in enthalpy. Use SatHL/SatHV
-    for saturated phase enthalpies.
+    !!! note
+        Do not use this function to attempt to find values on the saturation line, as any rounding errors anywhere will result in a point on either side of the phase boundary with large differences in enthalpy. 
+        Use [`SatHL`](@ref)/[`SatHV`](@ref) for saturated phase enthalpies.
 """
-function SpecificH(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificH, Region, P, T)
-end
-
-
-function SpecificH(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-    return property_PT(:SpecificH, Region, P.val, T.val)*u"kJ/kg"
-end
+function SpecificH end
 
 
 """
@@ -3104,37 +2826,16 @@ end
     and s [kJ/kgK].
     The explicit backwards equations are only available in regions 1 and 2.
     Input outside these will result in a DomainError exception.
-    If inputs have associated units, the value is returned with associated
-    units of kJ/kg via Uniful.jl.
+    If inputs have associated units, the value is returned with associated units of kJ/kg via Uniful.jl.
 
-    Note: Do not use this function to attempt to find values on the saturation
-    line, as any rounding errors anywhere will result in a point on either side
-    of the phase boundary with large differences in enthalpy. Use SatHL/SatHV
-    for saturated phase enthalpies,
+    !!! note
+        Do not use this function to attempt to find values on the saturation line, as any rounding errors anywhere will result in a point on either side of the phase boundary with large differences in enthalpy. 
+        Use [`SatHL`](@ref)/[`SatHV`](@ref) for saturated phase enthalpies.
+
 """
-function SpecificH_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpecificH, Region, P, T)
-end
+function SpecificH_Ps end
 
-
-function SpecificH_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(s, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-    T = _Temperature_Ps(Region, P.val, s.val)
-    return property_PT(:SpecificH, Region, P.val, T)*u"kJ/kg"
-end
+@func_def SpecificH
 
 
 """
@@ -3145,27 +2846,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificCP(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificCP, Region, P, T)
-end
-
-
-function SpecificCP(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-    return property_PT(:SpecificCP, Region, P.val, T.val)*u"kJ/kg/K"
-end
+function SpecificCP end
 
 
 """
@@ -3178,29 +2859,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificCP_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpecificCP, Region, P, T)
-end
-
-
-function SpecificCP_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpecificCP, Region, P.val, T)*u"kJ/kg/K"
-end
+function SpecificCP_Ph end
 
 
 """
@@ -3213,29 +2872,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificCP_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpecificCP, Region, P, T)
-end
+function SpecificCP_Ps end
 
-
-function SpecificCP_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(s, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-    T = _Temperature_Ps(Region, P.val, s.val)
-    return property_PT(:SpecificCP, Region, P.val, T)*u"kJ/kg/K"
-end
+@func_def SpecificCP
 
 
 """
@@ -3246,27 +2885,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificCV(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpecificCV, Region, P, T)
-end
-
-
-function SpecificCV(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-    return property_PT(:SpecificCV, Region, P.val, T.val)*u"kJ/kg/K"
-end
+function SpecificCV end
 
 
 """
@@ -3279,29 +2898,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificCV_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpecificCV, Region, P, T)
-end
-
-
-function SpecificCV_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpecificCV, Region, P.val, T)*u"kJ/kg/K"
-end
+function SpecificCV_Ph end
 
 
 """
@@ -3314,29 +2911,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of kJ/kgK via Uniful.jl.
 """
-function SpecificCV_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpecificCV, Region, P, T)
-end
+function SpecificCV_Ps end
 
-
-function SpecificCV_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(s, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-    T = _Temperature_Ps(Region, P.val, s.val)
-    return property_PT(:SpecificCV, Region, P.val, T)*u"kJ/kg/K"
-end
+@func_def SpecificCV
 
 
 """
@@ -3346,27 +2923,7 @@ end
     If inputs have associated units, the value is returned with associated
     units of m/s via Uniful.jl.
 """
-function SpeedOfSound(P, T)
-    Region = RegionID(P, T)
-    return property_PT(:SpeedOfSound, Region, P, T)
-end
-
-
-function SpeedOfSound(P::Q1, T::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    Region = RegionID(P.val, T.val)
-    return property_PT(:SpeedOfSound, Region, P.val, T.val)*u"m/s"
-end
+function SpeedOfSound end
 
 
 """
@@ -3375,29 +2932,7 @@ end
     Utility function that returns the sonic velocity [m/s] from P [MPa] and h [kJ/kg].
     If inputs have associated units, the value is returned with associated
     units of m/s via Uniful.jl."""
-function SpeedOfSound_Ph(P, h)
-    Region = RegionID_Ph(P, h)
-    T = _Temperature_Ph(Region, P, h)
-    return property_PT(:SpeedOfSound, Region, P, T)
-end
-
-
-function SpeedOfSound_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        h = 1.0*uconvert(u"kJ/kg", h)
-    catch
-        throw(UnitsError(h, "Invalid input units."))
-    end
-
-    Region = RegionID_Ph(P.val, h.val)
-    T = _Temperature_Ph(Region, P.val, h.val)
-    return property_PT(:SpeedOfSound, Region, P.val, T)*u"m/s"
-end
+function SpeedOfSound_Ph end
 
 
 """
@@ -3407,29 +2942,9 @@ end
     If inputs have associated units, the value is returned with associated
     units of m/s via Uniful.jl.
 """
-function SpeedOfSound_Ps(P, s)
-    Region = RegionID_Ps(P, s)
-    T = _Temperature_Ps(Region, P, s)
-    return property_PT(:SpeedOfSound, Region, P, T)
-end
+function SpeedOfSound_Ps end
 
-
-function SpeedOfSound_Ps(P::Q1, s::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    try
-        P = 1.0*uconvert(u"MPa", P)
-    catch
-        throw(UnitsError(P, "Invalid input units."))
-    end
-    try
-        s = 1.0*uconvert(u"kJ/kg/K", s)
-    catch
-        throw(UnitsError(s, "Invalid input units."))
-    end
-
-    Region = RegionID_Ps(P.val, s.val)
-    T = _Temperature_Ps(Region, P.val, s.val)
-    return property_PT(:SpeedOfSound, Region, P.val, T)*u"m/s"
-end
+@func_def SpeedOfSound
 
 
 """
@@ -3441,44 +2956,18 @@ end
 """
 function SatDensL(T)
     if T3 ≤ T ≤ Tc
-        b = [   1.992_740_64,
+        b = (   1.992_740_64,
                 1.099_653_42,
                -0.510_839_303,
                -1.754_934_79,
               -45.517_035_2,
-               -6.746_944_50E5]
+               -6.746_944_50E5)
 
         θ = T/Tc
         τ = 1 - θ
 
         return ρc*(1 + b[1]*τ^(1/3) + b[2]*τ^(2/3) + b[3]*τ^(5/3) + b[4]*τ^(16/3)
                + b[5]*τ^(43/3) + b[6]*τ^(110/3))
-    else
-        throw(DomainError(T, "Temperature not between triple and critical points"))
-    end
-end #SatDensL
-
-
-function SatDensL(T::Q) where Q <: Quantity
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    if T3 ≤ T.val ≤ Tc
-        b = [   1.992_740_64,
-                1.099_653_42,
-               -0.510_839_303,
-               -1.754_934_79,
-              -45.517_035_2,
-               -6.746_944_50E5]
-
-        θ = T.val/Tc
-        τ = 1 - θ
-
-        return ρc*(1 + b[1]*τ^(1/3) + b[2]*τ^(2/3) + b[3]*τ^(5/3) + b[4]*τ^(16/3)
-               + b[5]*τ^(43/3) + b[6]*τ^(110/3))*u"kg/m^3"
     else
         throw(DomainError(T, "Temperature not between triple and critical points"))
     end
@@ -3494,46 +2983,19 @@ end #SatDensL
 """
 function SatDensV(T)
     if T3 ≤ T ≤ Tc
-        c = [  -2.031_502_40,
+        c = (  -2.031_502_40,
                -2.683_029_40,
                -5.386_264_92,
               -17.299_160_5,
               -44.758_658_1,
               -63.920_106_3
-        ]
+        )
 
         θ = T/Tc
         τ = 1 - θ
 
         return ρc*exp(c[1]*τ^(2/6) + c[2]*τ^(4/6) + c[3]*τ^(8/6) + c[4]*τ^(18/6)
              + c[5]*τ^(37/6) + c[6]*τ^(71/6))
-    else
-        throw(DomainError(T, "Temperature not between triple and critical points"))
-    end
-end #SatDensV
-
-
-function SatDensV(T::Q) where Q <: Quantity
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    if T3 ≤ T.val ≤ Tc
-        c = [  -2.031_502_40,
-               -2.683_029_40,
-               -5.386_264_92,
-              -17.299_160_5,
-              -44.758_658_1,
-              -63.920_106_3
-        ]
-
-        θ = T.val/Tc
-        τ = 1 - θ
-
-        return ρc*exp(c[1]*τ^(2/6) + c[2]*τ^(4/6) + c[3]*τ^(8/6) + c[4]*τ^(18/6)
-             + c[5]*τ^(37/6) + c[6]*τ^(71/6))*u"kg/m^3"
     else
         throw(DomainError(T, "Temperature not between triple and critical points"))
     end
@@ -3551,42 +3013,16 @@ function SatHL(T)
     if T3 ≤ T ≤ Tc
         α0 = 1000
         dα = -1135.905_627_715
-        d = [   -5.651_349_98E-8,
+        d = (   -5.651_349_98E-8,
               2690.666_31,
                127.287_297,
               -135.003_439,
                  0.981_825_814
-            ]
+            )
 
         θ = T/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
         return (α + T/SatDensL(T)*1e6*∂Psat∂T(T))/1000.0
-    else
-        throw(DomainError(T, "Temperature not between triple and critical points"))
-    end
-end
-
-
-function SatHL(T::Q) where Q <: Quantity
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    if T3 ≤ T.val ≤ Tc
-        α0 = 1000
-        dα = -1135.905_627_715
-        d = [   -5.651_349_98E-8,
-              2690.666_31,
-               127.287_297,
-              -135.003_439,
-                 0.981_825_814
-            ]
-
-        θ = T.val/Tc
-        α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T.val/SatDensL(T.val)*1e6*∂Psat∂T(T.val))/1000.0*u"kJ/kg"
     else
         throw(DomainError(T, "Temperature not between triple and critical points"))
     end
@@ -3604,12 +3040,12 @@ function SatHV(T)
     if T3 ≤ T ≤ Tc
         α0 = 1000
         dα = -1135.905_627_715
-        d = [   -5.651_349_98E-8,
+        d = (   -5.651_349_98E-8,
               2690.666_31,
                127.287_297,
               -135.003_439,
                  0.981_825_814
-            ]
+            )
 
         θ = T/Tc
         α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
@@ -3619,31 +3055,6 @@ function SatHV(T)
     end
 end
 
-
-function SatHV(T::Q) where Q <: Quantity
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-
-    if T3 ≤ T.val ≤ Tc
-        α0 = 1000
-        dα = -1135.905_627_715
-        d = [   -5.651_349_98E-8,
-              2690.666_31,
-               127.287_297,
-              -135.003_439,
-                 0.981_825_814
-            ]
-
-        θ = T.val/Tc
-        α = α0*(dα + d[1]*θ^(-19) + d[2]*θ + d[3]*θ^4.5 + d[4]*θ^5 + d[5]*θ^54.5)
-        return (α + T.val/SatDensV(T.val)*1e6*∂Psat∂T(T.val))/1000.0*u"kJ/kg"
-    else
-        throw(DomainError(T, "Temperature not between triple and critical points"))
-    end
-end
 
 function ϕS(T)
     α0 = 1000
@@ -3679,16 +3090,6 @@ function SatSL(T)
 end
 
 
-function SatSL(T::Q) where Q <: Quantity
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-    T3 ≤ T.val ≤ Tc || throw(DomainError(T, "Temperature not between triple and critical points"))
-    return SatSL(T.val)*u"kJ/kg/K"
-end
-
 """
     SatSV
 
@@ -3703,17 +3104,6 @@ function SatSV(T)
     else
         throw(DomainError(T, "Temperature not between triple and critical points"))
     end
-end
-
-
-function SatSV(T::Q) where Q <: Quantity
-    try
-        T = 1.0*uconvert(u"K", T)
-    catch
-        throw(UnitsError(T, "Invalid input units."))
-    end
-    T3 ≤ T.val ≤ Tc || throw(DomainError(T, "Temperature not between triple and critical points"))
-    return SatSV(T.val)*u"kJ/kg/K"
 end
 
 
@@ -3753,7 +3143,6 @@ function Quality_Th(T, h)
     # Get the temperature from P, assuming saturated
     hl = SatHL(T)
     hv = SatHV(T)
-
     return (h - hl)/(hv - hl)
 end
 
@@ -3768,7 +3157,6 @@ function Quality_Ps(P, s)
     T = Tsat(P)
     sl = SatSL(T)
     sv = SatSV(T)
-
     return (s - sl)/(sv - sl)
 end
 
@@ -3786,16 +3174,33 @@ function Quality_Ts(T, s)
     return (s - sl)/(sv - sl)
 end
 
+#used in the precompile workload
+@inline mysignif(x, n) = round(x; sigdigits = n)
+
+if !isdefined(Base,:get_extension)
+    include("../ext/SteamTablesUnitfulExt.jl")
+end
+
 @setup_workload begin
     include("compilefile.jl")
-
+    if !isdefined(Base,:get_extension)
+        include("../ext/compilefile_Unitful.jl")
+    else
+        function runprecompworkload_unitful()
+            return nothing
+        end
+    end
     @compile_workload begin
         let
             dummy = runprecompworkload()
+            dummy2 = runprecompworkload_unitful()
             dummy = nothing
+            dummy2 = nothing
         end
     end
 end
+
+
 
 end # module
 
