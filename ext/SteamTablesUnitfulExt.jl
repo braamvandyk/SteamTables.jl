@@ -108,7 +108,7 @@ end
 
 
 function SteamTables.Temperature_Ph(P::Q1, h::Q2) where Q1 <: Quantity where Q2 <: Quantity
-    _P,_h = pt_unwrap_units(P, h)
+    _P,_h = ph_unwrap_units(P, h)
     return Temperature_Ph(_P, _h)*u"K"
 end
 
