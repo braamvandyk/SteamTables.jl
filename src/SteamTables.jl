@@ -78,7 +78,9 @@ const ρc = 322.         #kg/m3      Critical density of water
 const T3 = 273.16       #K          Triple point temperature of water
 const P3 = 611.657E-6   #MPa        Triple point pressure of water
 const Mr = 18.01528     #kg/kmol    Molecular weight of water
+
 const P_134 = 16.529164252604478 #intersection between region 1, 3 and 4. at T = 623.15
+const TC_REGION4 = 647.0959999988045 #real critical point
 
 export Psat, Tsat,
        SatDensL, SatDensV,
@@ -120,22 +122,71 @@ function itp_step(f::F,xa,xb,ya,yb,ϵ,κ₁,κ₂,j,nmid,nmax) where F
     return xa,xb,ya,yb
 end
 
-
-function itp_find_zero(f::F,xa,xb;tol = 0.5e-12,max_iters = 100) where F
-    κ₁,κ₂ = 0.2,2.0
-    n0 = 1
-    ya,yb = f(xa),f(xb)
-    @assert ya < yb
-    nmid = ceil(log2(abs(xb-xa)/(2*tol)))
-    nmax = nmid + n0
-    for i in 0:max_iters
-        xa,xb,ya,yb = itp_step(f::F,xa,xb,ya,yb,tol,κ₁,κ₂,i,nmid,nmax)
-        
-        if abs(xb - xa) <= 2*tol
-            return 0.5*(xa+xb)
+function itp_find_zero(f, a::Real, b::Real; tol::Real=1e-10, max_iter::Int=500)
+    fa, fb = f(a), f(b)
+ 
+    if fa * fb > 0
+        throw(ArgumentError("f(a) and f(b) must have opposite signs: " *
+                            "f($a) = $fa, f($b) = $fb"))
+    end
+ 
+    # Ensure |f(b)| ≤ |f(a)| — b is always the "best" guess
+    if abs(fa) < abs(fb)
+        a, b = b, a
+        fa, fb = fb, fa
+    end
+ 
+    c, fc = a, fa          # c tracks the previous best (or bisection point)
+    d      = b - a         # last step size (initialised; used from iter 2 on)
+    mflag  = true          # true → last step was bisection / bounds-based
+ 
+    for iter in 1:max_iter
+        # ── Convergence check ────────────────────────────────────────────────
+        if abs(b - a) < tol || fb == 0
+            return b
+        end
+ 
+        s = if fa != fc && fb != fc
+            # Inverse quadratic interpolation (3 distinct function values)
+            (a * fb * fc / ((fa - fb) * (fa - fc)) +
+             b * fa * fc / ((fb - fa) * (fb - fc)) +
+             c * fa * fb / ((fc - fa) * (fc - fb)))
+        else
+            # Secant method
+            b - fb * (b - a) / (fb - fa)
+        end
+ 
+        # ── Conditions that force bisection ──────────────────────────────────
+        mid       = (a + b) / 2
+        cond1     = !((3mid + a) / 4 < s < b || b < s < (3mid + a) / 4)
+        cond2     =  mflag && abs(s - b) >= abs(b - c) / 2
+        cond3     = !mflag && abs(s - b) >= abs(c - d) / 2
+        cond4     =  mflag && abs(b - c) < tol
+        cond5     = !mflag && abs(c - d) < tol
+ 
+        if cond1 || cond2 || cond3 || cond4 || cond5
+            s     = mid
+            mflag = true
+        else
+            mflag = false
+        end
+ 
+        fs = f(s)
+        d, c, fc = c, b, fb
+ 
+        if fa * fs < 0
+            b, fb = s, fs
+        else
+            a, fa = s, fs
+        end
+ 
+        if abs(fa) < abs(fb)
+            a, b   = b, a
+            fa, fb = fb, fa
         end
     end
-    return zero(xb)/zero(xb)
+ 
+    return b
 end
 
 
@@ -1227,19 +1278,20 @@ end
     Pressures in MPa and temperature in [K]
 """
 function Region3_TPs(P, s, symbol::Symbol)
+    #@show symbol
     T13 = 623.15*one(P)
     if symbol == :Region3_liquid
         Tmin = T13
         Tmax = Tsat(P)
     elseif symbol == :Region3_vapour
         Tmin = Tsat(P)
-        Tmax = B23(:P, P)
+        Tmax = min(B23(:P, P),Tc*one(P))
     else
         Tmin = T13
         Tmax = B23(:P, P)
     end
     f(t) = Region3(:SpecificS, P, 1/t) - s
-    t = itp_find_zero(f,1/Tmin, 1/Tmax)
+    t = itp_find_zero(f, 1/Tmax, 1/Tmin)
     T = 1/t
     isnan(T) && throw(error("Region3_TPs: temperature iterations failed to converge."))
     return T
@@ -1844,6 +1896,11 @@ function Region3_ρ(Output::Symbol, ρ, T)
     end
 
     ϕ_δδ = -n[1]/(δ^2) + sum(n[i]*I[i]*(I[i]-1)*(δ^(I[i]-2))*(τ^J[i]) for i=2:40)
+
+    if Output == :dpdrho
+        return  R*T/1000 * (2*δ*ϕ_δ + δ*δ*ϕ_δδ)
+    end
+    
     ϕ_δτ =  sum(n[i]*I[i]*(δ^(I[i]-1))*J[i]*(τ^(J[i]-1)) for i=2:40)
 
     if Output == :SpecificCP           #kJ/kgK
@@ -1887,21 +1944,57 @@ end
 function Region3_ρPT(P,T)
     if T <= Tc #we are inside saturation. use the saturation volume as initial guess
         Ps = Psat(T)
+        tt = sqrt(Tc - T)
         if P_134 <= P <= Ps #gas phase
-            ρmax = SatDensV(T)
-            ρmin = 1/Region2(:SpecificV,B23(:T,T),T)
+            ρmax = SatDensV(T) 
+            ρmin = 1/Region2(:SpecificV,B23(:T,T),T) - 10
         else
             ρmax = Region3_ρmax(T)
-            ρmin = SatDensL(T)
+            ρmin = SatDensL(T) -0.4*tt
+            #@show Region3_ρ(:Pressure,ρmin,T) - P
         end
     else #over critical point
-        ρmin = 1/Region2(:SpecificV,B23(:T,T),T)
-        ρmax = Region3_ρmax(T)
+        p_ρc = Region3_ρ(:Pressure,ρc,T)
+        p23 = B23(:T,T)
+        pmax = 100.0
+        if (p_ρc - P)*(p23 - P) < 0
+            ρmin,ρmax = minmax(1/Region2(:SpecificV,B23(:T,T),T) - 10,ρc)
+        elseif (p_ρc - P)*(pmax - P) < 0
+            ρmin,ρmax = minmax(Region3_ρmax(T),ρc)
+        else
+            ρmin,ρmax = minmax(Region3_ρmax(T),1/Region2(:SpecificV,B23(:T,T),T) - 10)
+        end
     end
+
     f(ρ) = Region3_ρ(:Pressure,ρ,T) - P
-    return itp_find_zero(f,ρmin,ρmax)
+    ρ = itp_find_zero(f,ρmin,ρmax)
+    #@show ρ
+    return ρ
 end
 
+function Region3_v0(T)#ρmax = SatDensV(T))
+    Ps = Psat(T)
+    f(ρ) = Region3_ρ(:Pressure,ρ,T) - Ps #f(ρmin) < 0 always
+    ρmax = SatDensV(T)
+    @show Ps
+    ρrange = range(log(ρmax),log(ρc),20)
+    i = 1
+    while f(ρmax) < 0
+        i += 1
+        ρmax = exp(ρrange[i])
+    end
+    ρmin = 1000*Ps/(R*T) #0.99/Region2(:SpecificV,B23(:T,T),T)
+    ρ = itp_find_zero(f,ρmin,ρmax)
+end
+
+function Region3_l(T)
+    Ps = Psat(T)
+    tt = sqrt(Tc - T)
+    f(ρ) = Region3_ρ(:Pressure,ρ,T) - Ps
+    ρmax = Region3_ρmax(T)
+    ρmin = SatDensL(T) -0.4*tt
+    ρ = itp_find_zero(f,ρmin,ρmax)
+end
 
 """
     Region4
@@ -2281,7 +2374,7 @@ function RegionID_Ps(P, s)::Symbol
 
     phase = :unknown
     if P <= Pc
-        Ts = Region4(:P,P)
+        Ts = min(Region4(:P,P),TC_REGION4*one(P))
         sl = SatSL(Ts)
         sv = SatSV(Ts)
         sl ≤ s ≤ sv && (return :Region4)
@@ -3180,6 +3273,44 @@ end
 
 if !isdefined(Base,:get_extension)
     include("../ext/SteamTablesUnitfulExt.jl")
+end
+
+function test_psat(;kl = 0.0,kv = 0.0)
+    T = range(623.15,Tc,500)
+    tt = sqrt.(Tc .- T)
+    p_v = Psat.(T) - Region3_ρ.(:Pressure,SatDensV.(T) .- kv .* tt,T)
+    p_l = Psat.(T) - Region3_ρ.(:Pressure,SatDensL.(T) .- kl .* tt,T)
+    return p_l,p_v
+end
+
+function p_spin(T,rho0)
+    f(x) = SteamTables.Region3_ρ(:dpdrho,x,T)
+    try
+        return itp_find_zero(f,rho0,ρc)
+    catch
+        return 0.0
+    end
+end
+
+function test_ps()
+    T = range(623.15,Tc,500)
+    rhov0 = SatDensV.(T)
+    rho_sv = p_spin.(T,rhov0)
+    rho_sv[end] = ρc
+
+    rhol0 = SatDensL.(T)
+    rho_sl = p_spin.(T,rhol0)
+    rho_sl[end] = ρc
+    return rho_sl,rho_sv
+end
+
+function Region3_DensL0(T)
+    tt = sqrt(Tc - T)
+    A = (7.242897864072022, -0.07511460675756564, -0.9424855336809395)
+    B = (-6058.39794554183, 0.5102955717792501, 8.032383810293565)
+    C = -0.44703651549451334
+    y = sum(A[i]*exp(tt/B[i]) for i in 1:3) + C
+    return exp(yy)
 end
 
 @setup_workload begin
