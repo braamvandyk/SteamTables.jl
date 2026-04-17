@@ -3268,12 +3268,7 @@ function Quality_Ts(T, s)
     return (s - sl)/(sv - sl)
 end
 
-#used in the precompile workload
-@inline mysignif(x, n) = round(x; sigdigits = n)
 
-if !isdefined(Base,:get_extension)
-    include("../ext/SteamTablesUnitfulExt.jl")
-end
 
 function test_psat(;kl = 0.0,kv = 0.0)
     T = range(623.15,Tc,500)
@@ -3313,6 +3308,14 @@ function Region3_DensL0(T)
     return exp(yy)
 end
 
+#used in the precompile workload
+@inline mysignif(x, n) = round(x; sigdigits = n)
+
+if !isdefined(Base,:get_extension)
+    using Unitful
+    include("../ext/SteamTablesUnitfulExt.jl")
+end
+
 @setup_workload begin
     include("compilefile.jl")
     if !isdefined(Base,:get_extension)
@@ -3331,7 +3334,6 @@ end
         end
     end
 end
-
 
 
 end # module

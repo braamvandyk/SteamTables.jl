@@ -1,6 +1,6 @@
 module SteamTablesUnitfulExt
 
-using Unitful
+isdefined(Base, :get_extension) ? (using Unitful) : (using ..Unitful)
 using Unitful: @u_str
 using SteamTables
 using SteamTables.PrecompileTools
